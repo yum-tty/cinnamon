@@ -251,37 +251,55 @@ export function HighlightPrevious(m: ViewportModel): ViewportModel {
 }
 
 /**
- * Update handles keyboard input.
+ * Update handles keyboard and mouse input.
  */
 export function Update(m: ViewportModel, msg: Msg): [ViewportModel, Cmd] {
   if (!msg || !("type" in msg)) return [m, null]
-  if (msg.type !== "key") return [m, null]
 
-  const key = msg as any
+  if (msg.type === "key") {
+    const key = msg as any
 
-  if (Matches(m.keyMap.PageDown as any, key)) {
-    return [ScrollDown(m, m.height), null]
+    if (Matches(m.keyMap.PageDown as any, key)) {
+      return [ScrollDown(m, m.height), null]
+    }
+    if (Matches(m.keyMap.PageUp as any, key)) {
+      return [ScrollUp(m, m.height), null]
+    }
+    if (Matches(m.keyMap.HalfPageDown as any, key)) {
+      return [ScrollDown(m, Math.floor(m.height / 2)), null]
+    }
+    if (Matches(m.keyMap.HalfPageUp as any, key)) {
+      return [ScrollUp(m, Math.floor(m.height / 2)), null]
+    }
+    if (Matches(m.keyMap.Down as any, key)) {
+      return [ScrollDown(m, 1), null]
+    }
+    if (Matches(m.keyMap.Up as any, key)) {
+      return [ScrollUp(m, 1), null]
+    }
+    if (Matches(m.keyMap.Left as any, key)) {
+      return [ScrollLeft(m, 1), null]
+    }
+    if (Matches(m.keyMap.Right as any, key)) {
+      return [ScrollRight(m, 1), null]
+    }
   }
-  if (Matches(m.keyMap.PageUp as any, key)) {
-    return [ScrollUp(m, m.height), null]
-  }
-  if (Matches(m.keyMap.HalfPageDown as any, key)) {
-    return [ScrollDown(m, Math.floor(m.height / 2)), null]
-  }
-  if (Matches(m.keyMap.HalfPageUp as any, key)) {
-    return [ScrollUp(m, Math.floor(m.height / 2)), null]
-  }
-  if (Matches(m.keyMap.Down as any, key)) {
-    return [ScrollDown(m, 1), null]
-  }
-  if (Matches(m.keyMap.Up as any, key)) {
-    return [ScrollUp(m, 1), null]
-  }
-  if (Matches(m.keyMap.Left as any, key)) {
-    return [ScrollLeft(m, 1), null]
-  }
-  if (Matches(m.keyMap.Right as any, key)) {
-    return [ScrollRight(m, 1), null]
+
+  if (msg.type === "mouseWheel") {
+    const wheel = msg as any
+    const delta = 3
+    if (wheel.direction === "up") {
+      return [ScrollUp(m, delta), null]
+    }
+    if (wheel.direction === "down") {
+      return [ScrollDown(m, delta), null]
+    }
+    if (wheel.direction === "left") {
+      return [ScrollLeft(m, 1), null]
+    }
+    if (wheel.direction === "right") {
+      return [ScrollRight(m, 1), null]
+    }
   }
 
   return [m, null]
