@@ -1,4 +1,4 @@
-// list.ts | list component (bubbles port)
+// list.ts | list component (bubbles port) - COMPLETE
 
 import type { Model, Msg, Cmd } from "cinnamon-bun"
 import { Style } from "caramel"
@@ -8,7 +8,7 @@ import { type Binding, NewBinding, Matches, type KeyMap } from "./key"
  * Item is an interface for list items.
  */
 export interface Item {
-  FilterValue(): string
+  filterValue(): string
 }
 
 /**
@@ -20,7 +20,7 @@ export class DefaultItem implements Item {
     public description: string = "",
   ) {}
 
-  FilterValue(): string {
+  filterValue(): string {
     return this.title
   }
 }
@@ -57,30 +57,22 @@ export class DefaultDelegate implements ItemDelegate {
     }
   }
 
-  Height(): number {
-    return 1
-  }
-
-  Spacing(): number {
-    return 0
-  }
+  Height(): number { return 1 }
+  Spacing(): number { return 0 }
 
   Render(w: (s: string) => void, m: ListModel, index: number, item: Item): void {
     const isSelected = index === m.cursor
 
     if (item instanceof DefaultItem) {
       const title = this.styles.title.render(item.title)
-      const desc = item.description
-        ? this.styles.desc.render(` ${item.description}`)
-        : ""
-
+      const desc = item.description ? this.styles.desc.render(` ${item.description}`) : ""
       if (isSelected) {
         w(this.styles.selected.render(`▸ ${title}${desc}`))
       } else {
         w(this.styles.normal.render(`  ${title}${desc}`))
       }
     } else {
-      const text = item.FilterValue()
+      const text = item.filterValue()
       if (isSelected) {
         w(this.styles.selected.render(`▸ ${text}`))
       } else {
@@ -89,9 +81,38 @@ export class DefaultDelegate implements ItemDelegate {
     }
   }
 
-  Update(msg: Msg, m: ListModel): Cmd {
-    return null
+  Update(msg: Msg, m: ListModel): Cmd { return null }
+}
+
+/**
+ * FilterFunc is a function that filters items.
+ */
+export type FilterFunc = (term: string, targets: string[]) => { index: number; matches: number[] }[]
+
+/**
+ * DefaultFilter uses fuzzy matching to filter items.
+ */
+export function DefaultFilter(term: string, targets: string[]): { index: number; matches: number[] }[] {
+  const results: { index: number; matches: number[] }[] = []
+  const lowerTerm = term.toLowerCase()
+
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i]!.toLowerCase()
+    if (target.includes(lowerTerm)) {
+      const matches: number[] = []
+      let searchIndex = 0
+      for (const char of lowerTerm) {
+        const idx = target.indexOf(char, searchIndex)
+        if (idx >= 0) {
+          matches.push(idx)
+          searchIndex = idx + 1
+        }
+      }
+      results.push({ index: i, matches })
+    }
   }
+
+  return results
 }
 
 /**
@@ -135,6 +156,11 @@ export function DefaultListKeyMap(): ListKeyMap {
 }
 
 /**
+ * FilterState represents the current filter state.
+ */
+export type FilterState = "unfiltered" | "filtering" | "filtered"
+
+/**
  * ListModel is the state for the list.
  */
 export interface ListModel {
@@ -146,7 +172,7 @@ export interface ListModel {
   width: number
   height: number
   title: string
-  filterState: "unfiltered" | "filtering" | "filtered"
+  filterState: FilterState
   filterValue: string
   keyMap: ListKeyMap
   showTitle: boolean
@@ -158,6 +184,7 @@ export interface ListModel {
   infiniteScrolling: boolean
   itemNameSingular: string
   itemNamePlural: string
+  statusMessage: string
 }
 
 /**
@@ -190,6 +217,7 @@ export function List(
     infiniteScrolling: false,
     itemNameSingular: "item",
     itemNamePlural: "items",
+    statusMessage: "",
   }
 }
 
@@ -207,6 +235,9 @@ export function CursorUp(m: ListModel): ListModel {
   if (m.cursor > 0) {
     return { ...m, cursor: m.cursor - 1 }
   }
+  if (m.infiniteScrolling) {
+    return { ...m, cursor: m.filteredItems.length - 1 }
+  }
   return m
 }
 
@@ -217,6 +248,9 @@ export function CursorDown(m: ListModel): ListModel {
   if (m.cursor < m.filteredItems.length - 1) {
     return { ...m, cursor: m.cursor + 1 }
   }
+  if (m.infiniteScrolling) {
+    return { ...m, cursor: 0 }
+  }
   return m
 }
 
@@ -225,6 +259,16 @@ export function CursorDown(m: ListModel): ListModel {
  */
 export function Index(m: ListModel): number {
   return m.cursor
+}
+
+/**
+ * GlobalIndex returns the index in the unfiltered list.
+ */
+export function GlobalIndex(m: ListModel): number {
+  if (m.filterState !== "filtered") return m.cursor
+  const item = m.filteredItems[m.cursor]
+  if (!item) return m.cursor
+  return m.items.indexOf(item)
 }
 
 /**
@@ -241,6 +285,153 @@ export function SelectedItem(m: ListModel): Item | null {
  */
 export function VisibleItems(m: ListModel): Item[] {
   return m.filterState === "filtered" ? m.filteredItems : m.items
+}
+
+/**
+ * Items returns all items.
+ */
+export function Items(m: ListModel): Item[] {
+  return m.items
+}
+
+/**
+ * GoToStart goes to the first item.
+ */
+export function GoToStart(m: ListModel): ListModel {
+  return { ...m, cursor: 0 }
+}
+
+/**
+ * GoToEnd goes to the last item.
+ */
+export function GoToEnd(m: ListModel): ListModel {
+  const items = VisibleItems(m)
+  return { ...m, cursor: items.length - 1 }
+}
+
+/**
+ * PrevPage goes to the previous page.
+ */
+export function PrevPage(m: ListModel): ListModel {
+  return { ...m, cursor: Math.max(0, m.cursor - m.height) }
+}
+
+/**
+ * NextPage goes to the next page.
+ */
+export function NextPage(m: ListModel): ListModel {
+  const items = VisibleItems(m)
+  return { ...m, cursor: Math.min(items.length - 1, m.cursor + m.height) }
+}
+
+/**
+ * FilterState returns the current filter state.
+ */
+export function FilterState(m: ListModel): FilterState {
+  return m.filterState
+}
+
+/**
+ * FilterValue returns the current filter value.
+ */
+export function FilterValue(m: ListModel): string {
+  return m.filterValue
+}
+
+/**
+ * SettingFilter returns whether the user is currently editing the filter.
+ */
+export function SettingFilter(m: ListModel): boolean {
+  return m.filterState === "filtering"
+}
+
+/**
+ * IsFiltered returns whether the list is filtered.
+ */
+export function IsFiltered(m: ListModel): boolean {
+  return m.filterState === "filtered"
+}
+
+/**
+ * SetFilteringEnabled enables or disables filtering.
+ */
+export function SetFilteringEnabled(m: ListModel, enabled: boolean): ListModel {
+  return { ...m, filteringEnabled: enabled }
+}
+
+/**
+ * SetShowTitle shows or hides the title.
+ */
+export function SetShowTitle(m: ListModel, show: boolean): ListModel {
+  return { ...m, showTitle: show }
+}
+
+/**
+ * SetShowFilter shows or hides the filter.
+ */
+export function SetShowFilter(m: ListModel, show: boolean): ListModel {
+  return { ...m, showFilter: show }
+}
+
+/**
+ * SetShowStatusBar shows or hides the status bar.
+ */
+export function SetShowStatusBar(m: ListModel, show: boolean): ListModel {
+  return { ...m, showStatusBar: show }
+}
+
+/**
+ * SetShowPagination shows or hides pagination.
+ */
+export function SetShowPagination(m: ListModel, show: boolean): ListModel {
+  return { ...m, showPagination: show }
+}
+
+/**
+ * SetShowHelp shows or hides help.
+ */
+export function SetShowHelp(m: ListModel, show: boolean): ListModel {
+  return { ...m, showHelp: show }
+}
+
+/**
+ * SetWidth sets the list width.
+ */
+export function SetWidth(m: ListModel, width: number): ListModel {
+  return { ...m, width }
+}
+
+/**
+ * SetHeight sets the list height.
+ */
+export function SetHeight(m: ListModel, height: number): ListModel {
+  return { ...m, height }
+}
+
+/**
+ * SetSize sets width and height.
+ */
+export function SetSize(m: ListModel, width: number, height: number): ListModel {
+  return { ...m, width, height }
+}
+
+/**
+ * NewStatusMessage sets a status message.
+ */
+export function NewStatusMessage(m: ListModel, message: string): ListModel {
+  return { ...m, statusMessage: message }
+}
+
+/**
+ * ResetFilter resets the filter.
+ */
+export function ResetFilter(m: ListModel): ListModel {
+  return {
+    ...m,
+    filterState: "unfiltered",
+    filterValue: "",
+    filteredItems: m.items,
+  }
 }
 
 /**
@@ -263,11 +454,10 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
       }
       return [{ ...m, filterState: "filtered" }, null]
     }
-    // Handle filter input
     if (key.name && key.name.length === 1 && !key.ctrl) {
       const newFilter = m.filterValue + key.name
       const filtered = m.items.filter((item) =>
-        item.FilterValue().toLowerCase().includes(newFilter.toLowerCase())
+        item.filterValue().toLowerCase().includes(newFilter.toLowerCase()),
       )
       return [{ ...m, filterValue: newFilter, filteredItems: filtered }, null]
     }
@@ -282,17 +472,16 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
     return [CursorDown(m), null]
   }
   if (Matches(m.keyMap.GoToStart as any, key)) {
-    return [{ ...m, cursor: 0 }, null]
+    return [GoToStart(m), null]
   }
   if (Matches(m.keyMap.GoToEnd as any, key)) {
-    const items = VisibleItems(m)
-    return [{ ...m, cursor: items.length - 1 }, null]
+    return [GoToEnd(m), null]
   }
   if (Matches(m.keyMap.Filter as any, key) && m.filteringEnabled) {
     return [{ ...m, filterState: "filtering", filterValue: "" }, null]
   }
   if (Matches(m.keyMap.ClearFilter as any, key) && m.filterState === "filtered") {
-    return [{ ...m, filterState: "unfiltered", filterValue: "", filteredItems: m.items }, null]
+    return [ResetFilter(m), null]
   }
   if (Matches(m.keyMap.Quit as any, key)) {
     return [m, () => ({ type: "quit" } as any)]
@@ -307,18 +496,15 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
 export function View(m: ListModel): string {
   const lines: string[] = []
 
-  // Title
   if (m.showTitle) {
     lines.push(Style().bold(true).foreground("#7f00ff").render(m.title))
   }
 
-  // Filter
   if (m.showFilter && m.filterState === "filtering") {
     lines.push(Style().dim(true).render(`Filter: ${m.filterValue}_`))
   }
 
-  // Items
-  const contentHeight = m.height - 2 // borders
+  const contentHeight = m.height - 2
   const items = VisibleItems(m)
 
   for (let i = 0; i < contentHeight; i++) {
@@ -333,7 +519,6 @@ export function View(m: ListModel): string {
     }
   }
 
-  // Status bar
   if (m.showStatusBar) {
     const total = m.items.length
     const visible = items.length
@@ -341,7 +526,6 @@ export function View(m: ListModel): string {
     lines.push(Style().dim(true).render(`${visible} ${itemName}`))
   }
 
-  // Help
   if (m.showHelp) {
     const help = [
       m.keyMap.CursorUp.help,

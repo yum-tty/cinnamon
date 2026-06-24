@@ -1,7 +1,7 @@
 // cursor.ts | virtual cursor (bubbles port)
 
 import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { Style } from "caramel"
+import { NewStyle, type Style as StyleType } from "caramel"
 
 /**
  * CursorMode describes the behavior of the cursor.
@@ -12,8 +12,8 @@ export type CursorMode = "blink" | "static" | "hide"
  * CursorModel is the state for the cursor.
  */
 export interface CursorModel {
-  style: Style
-  textStyle: Style
+  style: StyleType
+  textStyle: StyleType
   blinkSpeed: number
   isBlinked: boolean
   char: string
@@ -27,8 +27,8 @@ export interface CursorModel {
  */
 export function Cursor(): CursorModel {
   return {
-    style: Style().reverse(true),
-    textStyle: Style(),
+    style: NewStyle().reverse(true),
+    textStyle: NewStyle(),
     blinkSpeed: 530,
     isBlinked: true,
     char: " ",

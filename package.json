@@ -39,7 +39,7 @@
     "@types/bun": "latest"
   },
   "dependencies": {
-    "caramel": "github:yum-tty/caramel",
-    "cinnamon-bun": "github:yum-tty/cinnamon-bun"
+    "caramel": "file:../caramel",
+    "cinnamon-bun": "file:../cinnamon-bun"
   }
 }

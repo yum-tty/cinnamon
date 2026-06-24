@@ -21,6 +21,10 @@ export interface TextareaKeyMap {
   DeleteCharacterForward: Binding
   LineStart: Binding
   LineEnd: Binding
+  PageUp: Binding
+  PageDown: Binding
+  InputBegin: Binding
+  InputEnd: Binding
   Paste: Binding
   Enter: Binding
 }
@@ -42,6 +46,10 @@ export function DefaultTextareaKeyMap(): TextareaKeyMap {
     DeleteCharacterForward: NewBinding({ keys: ["delete", "ctrl+d"], help: "delete forward" }),
     LineStart: NewBinding({ keys: ["home", "ctrl+a"], help: "go to start" }),
     LineEnd: NewBinding({ keys: ["end", "ctrl+e"], help: "go to end" }),
+    PageUp: NewBinding({ keys: ["pgup", "ctrl+u"], help: "page up" }),
+    PageDown: NewBinding({ keys: ["pgdown", "ctrl+d"], help: "page down" }),
+    InputBegin: NewBinding({ keys: ["alt+<", "ctrl+home"], help: "go to beginning" }),
+    InputEnd: NewBinding({ keys: ["alt+>", "ctrl+end"], help: "go to end" }),
     Paste: NewBinding({ keys: ["ctrl+v"], help: "paste" }),
     Enter: NewBinding({ keys: ["enter"], help: "new line" }),
   }
@@ -103,6 +111,190 @@ export function Blur(m: TextareaModel): [TextareaModel, Cmd] {
 }
 
 /**
+ * CursorDown moves the cursor down one line.
+ */
+export function CursorDown(m: TextareaModel): TextareaModel {
+  const lines = m.value.split("\n")
+  let currentLine = 0
+  let pos = 0
+  for (let i = 0; i < lines.length; i++) {
+    if (pos + lines[i]!.length >= m.cursor) {
+      currentLine = i
+      break
+    }
+    pos += lines[i]!.length + 1
+  }
+  if (currentLine < lines.length - 1) {
+    const lineStart = pos
+    const lineEnd = lineStart + lines[currentLine]!.length
+    const colInLine = m.cursor - lineStart
+    const nextLineStart = lineEnd + 1
+    const nextLineLen = lines[currentLine + 1]!.length
+    const newCol = Math.min(colInLine, nextLineLen)
+    return { ...m, cursor: nextLineStart + newCol }
+  }
+  return m
+}
+
+/**
+ * CursorUp moves the cursor up one line.
+ */
+export function CursorUp(m: TextareaModel): TextareaModel {
+  const lines = m.value.split("\n")
+  let currentLine = 0
+  let pos = 0
+  for (let i = 0; i < lines.length; i++) {
+    if (pos + lines[i]!.length >= m.cursor) {
+      currentLine = i
+      break
+    }
+    pos += lines[i]!.length + 1
+  }
+  if (currentLine > 0) {
+    let prevLineStart = 0
+    for (let i = 0; i < currentLine - 1; i++) {
+      prevLineStart += lines[i]!.length + 1
+    }
+    const colInLine = m.cursor - pos
+    const prevLineLen = lines[currentLine - 1]!.length
+    const newCol = Math.min(colInLine, prevLineLen)
+    return { ...m, cursor: prevLineStart + newCol }
+  }
+  return m
+}
+
+/**
+ * CursorStart moves the cursor to the start of the current line.
+ */
+export function CursorStart(m: TextareaModel): TextareaModel {
+  const before = m.value.slice(0, m.cursor)
+  const lastNewline = before.lastIndexOf("\n")
+  return { ...m, cursor: lastNewline + 1 }
+}
+
+/**
+ * CursorEnd moves the cursor to the end of the current line.
+ */
+export function CursorEnd(m: TextareaModel): TextareaModel {
+  const after = m.value.slice(m.cursor)
+  const nextNewline = after.indexOf("\n")
+  const newCursor = nextNewline === -1 ? m.value.length : m.cursor + nextNewline
+  return { ...m, cursor: newCursor }
+}
+
+/**
+ * Line returns the current line number (0-indexed).
+ */
+export function Line(m: TextareaModel): number {
+  const before = m.value.slice(0, m.cursor)
+  return before.split("\n").length - 1
+}
+
+/**
+ * LineCount returns the total number of lines.
+ */
+export function LineCount(m: TextareaModel): number {
+  return m.value.split("\n").length
+}
+
+/**
+ * Column returns the current column number (0-indexed).
+ */
+export function Column(m: TextareaModel): number {
+  const before = m.value.slice(0, m.cursor)
+  const lastNewline = before.lastIndexOf("\n")
+  return m.cursor - lastNewline - 1
+}
+
+/**
+ * Word returns the word at the cursor.
+ */
+export function Word(m: TextareaModel): string {
+  const before = m.value.slice(0, m.cursor)
+  const after = m.value.slice(m.cursor)
+  const wordStart = before.search(/\S+$/)
+  const wordEnd = after.search(/^\S+/)
+  if (wordStart === -1 && wordEnd === -1) return ""
+  const start = wordStart === -1 ? m.cursor : wordStart
+  const end = wordEnd === -1 ? m.cursor : m.cursor + wordEnd
+  return m.value.slice(start, end)
+}
+
+/**
+ * Reset resets the textarea.
+ */
+export function Reset(m: TextareaModel): TextareaModel {
+  return { ...m, value: "", cursor: 0 }
+}
+
+/**
+ * Width returns the textarea width.
+ */
+export function Width(m: TextareaModel): number {
+  return m.width
+}
+
+/**
+ * SetWidth sets the textarea width.
+ */
+export function SetWidth(m: TextareaModel, width: number): TextareaModel {
+  return { ...m, width }
+}
+
+/**
+ * Height returns the textarea height.
+ */
+export function Height(m: TextareaModel): number {
+  return m.height
+}
+
+/**
+ * SetHeight sets the textarea height.
+ */
+export function SetHeight(m: TextareaModel, height: number): TextareaModel {
+  return { ...m, height }
+}
+
+/**
+ * SetPromptFunc sets a dynamic prompt function.
+ */
+export function SetPromptFunc(
+  m: TextareaModel,
+  _promptWidth: number,
+  _fn: (info: { lineNumber: number; focused: boolean }) => string,
+): TextareaModel {
+  return m
+}
+
+/**
+ * VirtualCursor returns whether virtual cursor is enabled.
+ */
+export function VirtualCursor(m: TextareaModel): boolean {
+  return true
+}
+
+/**
+ * SetVirtualCursor enables or disables virtual cursor.
+ */
+export function SetVirtualCursor(m: TextareaModel, _v: boolean): TextareaModel {
+  return m
+}
+
+/**
+ * Styles returns the textarea styles.
+ */
+export function Styles(m: TextareaModel): any {
+  return null
+}
+
+/**
+ * SetStyles sets the textarea styles.
+ */
+export function SetStyles(m: TextareaModel, _styles: any): TextareaModel {
+  return m
+}
+
+/**
  * Update handles keyboard input.
  */
 export function Update(m: TextareaModel, msg: Msg): [TextareaModel, Cmd] {
@@ -142,6 +334,54 @@ export function Update(m: TextareaModel, msg: Msg): [TextareaModel, Cmd] {
     const after = m.value.slice(m.cursor)
     const nextNewline = after.indexOf("\n")
     newCursor = nextNewline === -1 ? m.value.length : m.cursor + nextNewline
+  }
+  // Page up
+  else if (Matches(m.keyMap.PageUp as any, key)) {
+    const lines = m.value.split("\n")
+    let currentLine = 0
+    let pos = 0
+    for (let i = 0; i < lines.length; i++) {
+      if (pos + lines[i]!.length >= m.cursor) {
+        currentLine = i
+        break
+      }
+      pos += lines[i]!.length + 1
+    }
+    const targetLine = Math.max(0, currentLine - m.height)
+    let newPos = 0
+    for (let i = 0; i < targetLine; i++) {
+      newPos += lines[i]!.length + 1
+    }
+    const colInLine = m.cursor - pos
+    newCursor = newPos + Math.min(colInLine, lines[targetLine]!.length)
+  }
+  // Page down
+  else if (Matches(m.keyMap.PageDown as any, key)) {
+    const lines = m.value.split("\n")
+    let currentLine = 0
+    let pos = 0
+    for (let i = 0; i < lines.length; i++) {
+      if (pos + lines[i]!.length >= m.cursor) {
+        currentLine = i
+        break
+      }
+      pos += lines[i]!.length + 1
+    }
+    const targetLine = Math.min(lines.length - 1, currentLine + m.height)
+    let newPos = 0
+    for (let i = 0; i < targetLine; i++) {
+      newPos += lines[i]!.length + 1
+    }
+    const colInLine = m.cursor - pos
+    newCursor = newPos + Math.min(colInLine, lines[targetLine]!.length)
+  }
+  // Input begin
+  else if (Matches(m.keyMap.InputBegin as any, key)) {
+    newCursor = 0
+  }
+  // Input end
+  else if (Matches(m.keyMap.InputEnd as any, key)) {
+    newCursor = m.value.length
   }
   // Enter
   else if (Matches(m.keyMap.Enter as any, key)) {

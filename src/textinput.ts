@@ -1,7 +1,7 @@
 // textinput.ts | text input component (bubbles port)
 
 import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { Style } from "caramel"
+import { NewStyle, type Style as StyleType } from "caramel"
 import { Cursor, type CursorModel, Focus as CursorFocus, Blur as CursorBlur, SetChar, Update as CursorUpdate, View as CursorView } from "./cursor"
 import { type Binding, NewBinding, Matches, type KeyMap } from "./key"
 
@@ -14,11 +14,11 @@ export type EchoMode = "normal" | "password" | "none"
  * Styles for the text input.
  */
 export interface TextInputStyles {
-  base: Style
-  focused: Style
-  cursor: Style
-  placeholder: Style
-  suggestions: Style
+  base: StyleType
+  focused: StyleType
+  cursor: StyleType
+  placeholder: StyleType
+  suggestions: StyleType
 }
 
 /**
@@ -26,11 +26,11 @@ export interface TextInputStyles {
  */
 export function DefaultDarkStyles(): TextInputStyles {
   return {
-    base: Style().foreground("#AAAAAA"),
-    focused: Style(),
-    cursor: Style().reverse(true),
-    placeholder: Style().dim(true).foreground("#666666"),
-    suggestions: Style().dim(true).foreground("#7f00ff"),
+    base: NewStyle().foreground("#AAAAAA"),
+    focused: NewStyle(),
+    cursor: NewStyle().reverse(true),
+    placeholder: NewStyle().dim(true).foreground("#666666"),
+    suggestions: NewStyle().dim(true).foreground("#7f00ff"),
   }
 }
 
@@ -39,11 +39,11 @@ export function DefaultDarkStyles(): TextInputStyles {
  */
 export function DefaultLightStyles(): TextInputStyles {
   return {
-    base: Style().foreground("#555555"),
-    focused: Style(),
-    cursor: Style().reverse(true),
-    placeholder: Style().dim(true).foreground("#999999"),
-    suggestions: Style().dim(true).foreground("#0066CC"),
+    base: NewStyle().foreground("#555555"),
+    focused: NewStyle(),
+    cursor: NewStyle().reverse(true),
+    placeholder: NewStyle().dim(true).foreground("#999999"),
+    suggestions: NewStyle().dim(true).foreground("#0066CC"),
   }
 }
 
@@ -153,6 +153,125 @@ export function Focus(m: TextInputModel): [TextInputModel, Cmd] {
 export function Blur(m: TextInputModel): [TextInputModel, Cmd] {
   const vc = CursorBlur(m.virtualCursor)
   return [{ ...m, focused: false, virtualCursor: vc }, null]
+}
+
+/**
+ * Position returns the cursor position.
+ */
+export function Position(m: TextInputModel): number {
+  return m.cursor
+}
+
+/**
+ * CursorStart moves the cursor to the start.
+ */
+export function CursorStart(m: TextInputModel): TextInputModel {
+  return { ...m, cursor: 0 }
+}
+
+/**
+ * CursorEnd moves the cursor to the end.
+ */
+export function CursorEnd(m: TextInputModel): TextInputModel {
+  return { ...m, cursor: m.value.length }
+}
+
+/**
+ * Reset resets the text input.
+ */
+export function Reset(m: TextInputModel): TextInputModel {
+  return { ...m, value: "", cursor: 0, offset: 0, err: "" }
+}
+
+/**
+ * SetSuggestions sets the available suggestions.
+ */
+export function SetSuggestions(m: TextInputModel, suggestions: string[]): TextInputModel {
+  return { ...m, suggestions, matchedSuggestions: suggestions, currentSuggestionIndex: 0 }
+}
+
+/**
+ * AvailableSuggestions returns the available suggestions.
+ */
+export function AvailableSuggestions(m: TextInputModel): string[] {
+  return m.suggestions
+}
+
+/**
+ * MatchedSuggestions returns the matched suggestions.
+ */
+export function MatchedSuggestions(m: TextInputModel): string[] {
+  return m.matchedSuggestions
+}
+
+/**
+ * CurrentSuggestion returns the current suggestion.
+ */
+export function CurrentSuggestion(m: TextInputModel): string {
+  return m.matchedSuggestions[m.currentSuggestionIndex] || ""
+}
+
+/**
+ * CurrentSuggestionIndex returns the current suggestion index.
+ */
+export function CurrentSuggestionIndex(m: TextInputModel): number {
+  return m.currentSuggestionIndex
+}
+
+/**
+ * Width returns the text input width.
+ */
+export function Width(m: TextInputModel): number {
+  return m.width
+}
+
+/**
+ * SetWidth sets the text input width.
+ */
+export function SetWidth(m: TextInputModel, width: number): TextInputModel {
+  return { ...m, width }
+}
+
+/**
+ * Blink returns a blink command.
+ */
+export function Blink(m: TextInputModel): Cmd {
+  return () => Promise.resolve({ type: "initialBlink" } as any)
+}
+
+/**
+ * Paste returns a paste command.
+ */
+export function Paste(_m: TextInputModel): Cmd {
+  return () => Promise.resolve({ type: "paste" } as any)
+}
+
+/**
+ * Styles returns the text input styles.
+ */
+export function Styles(m: TextInputModel): TextInputStyles {
+  return m.styles
+}
+
+/**
+ * SetStyles sets the text input styles.
+ */
+export function SetStyles(m: TextInputModel, styles: TextInputStyles): TextInputModel {
+  return { ...m, styles }
+}
+
+/**
+ * VirtualCursor returns whether virtual cursor is enabled.
+ */
+export function VirtualCursor(m: TextInputModel): boolean {
+  return true
+}
+
+/**
+ * SetVirtualCursor enables or disables virtual cursor.
+ */
+export function SetVirtualCursor(m: TextInputModel, _v: boolean): TextInputModel {
+  return m
 }
 
 /**
@@ -296,7 +415,7 @@ export function View(m: TextInputModel): string {
   const cursorView = CursorView({ ...m.virtualCursor, char })
   const value = style.render(before) + cursorView + style.render(after)
 
-  const err = m.err ? Style().foreground("red").render(` ${m.err}`) : ""
+  const err = m.err ? NewStyle().foreground("red").render(` ${m.err}`) : ""
 
   return prompt + value + err
 }
