@@ -3,6 +3,8 @@
 import type { Model, Msg, Cmd } from "cinnamon-bun"
 import { NewStyle, type Style as StyleType } from "caramel"
 
+declare const setTimeout: any
+
 /**
  * CursorMode describes the behavior of the cursor.
  */
@@ -86,7 +88,7 @@ export function Update(m: CursorModel, msg: Msg): [CursorModel, Cmd] {
   switch (msg.type) {
     case "initialBlink":
       if (m.mode !== "blink" || !m.focused) return [m, null]
-      return [m, m.BlinkCmd()]
+      return [m, BlinkCmd(m)]
 
     case "focus":
       return Focus(m)
@@ -99,7 +101,7 @@ export function Update(m: CursorModel, msg: Msg): [CursorModel, Cmd] {
       if ((msg as any).tag !== m.blinkTag) return [m, null]
 
       const newM = { ...m, isBlinked: !m.isBlinked }
-      return [newM, newM.BlinkCmd()]
+      return [newM, BlinkCmd(newM)]
 
     case "blinkCanceled":
       return [m, null]

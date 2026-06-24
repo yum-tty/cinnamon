@@ -49,11 +49,11 @@ export class DefaultDelegate implements ItemDelegate {
 
   constructor(dark: boolean = true) {
     this.styles = {
-      normal: Style().foreground(dark ? "#AAAAAA" : "#555555"),
-      selected: Style().foreground(dark ? "#FFFFFF" : "#000000"),
-      title: Style().bold(true),
-      desc: Style().foreground(dark ? "#666666" : "#999999"),
-      dimmed: Style().dim(true).foreground(dark ? "#444444" : "#BBBBBB"),
+      normal: new Style().foreground(dark ? "#AAAAAA" : "#555555"),
+      selected: new Style().foreground(dark ? "#FFFFFF" : "#000000"),
+      title: new Style().bold(true),
+      desc: new Style().foreground(dark ? "#666666" : "#999999"),
+      dimmed: new Style().dim(true).foreground(dark ? "#444444" : "#BBBBBB"),
     }
   }
 
@@ -93,6 +93,32 @@ export type FilterFunc = (term: string, targets: string[]) => { index: number; m
  * DefaultFilter uses fuzzy matching to filter items.
  */
 export function DefaultFilter(term: string, targets: string[]): { index: number; matches: number[] }[] {
+  const results: { index: number; matches: number[] }[] = []
+  const lowerTerm = term.toLowerCase()
+
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i]!.toLowerCase()
+    if (target.includes(lowerTerm)) {
+      const matches: number[] = []
+      let searchIndex = 0
+      for (const char of lowerTerm) {
+        const idx = target.indexOf(char, searchIndex)
+        if (idx >= 0) {
+          matches.push(idx)
+          searchIndex = idx + 1
+        }
+      }
+      results.push({ index: i, matches })
+    }
+  }
+
+  return results
+}
+
+/**
+ * UnsortedFilter filters items without sorting by match quality.
+ */
+export function UnsortedFilter(term: string, targets: string[]): { index: number; matches: number[] }[] {
   const results: { index: number; matches: number[] }[] = []
   const lowerTerm = term.toLowerCase()
 
@@ -233,10 +259,13 @@ export function SetItems(m: ListModel, items: Item[]): ListModel {
  */
 export function CursorUp(m: ListModel): ListModel {
   if (m.cursor > 0) {
-    return { ...m, cursor: m.cursor - 1 }
+    const newCursor = m.cursor - 1
+    const newOffset = newCursor < m.offset ? newCursor : m.offset
+    return { ...m, cursor: newCursor, offset: newOffset }
   }
   if (m.infiniteScrolling) {
-    return { ...m, cursor: m.filteredItems.length - 1 }
+    const last = m.filteredItems.length - 1
+    return { ...m, cursor: last, offset: Math.max(0, last - m.height + 1) }
   }
   return m
 }
@@ -246,10 +275,12 @@ export function CursorUp(m: ListModel): ListModel {
  */
 export function CursorDown(m: ListModel): ListModel {
   if (m.cursor < m.filteredItems.length - 1) {
-    return { ...m, cursor: m.cursor + 1 }
+    const newCursor = m.cursor + 1
+    const newOffset = newCursor >= m.offset + m.height ? newCursor - m.height + 1 : m.offset
+    return { ...m, cursor: newCursor, offset: newOffset }
   }
   if (m.infiniteScrolling) {
-    return { ...m, cursor: 0 }
+    return { ...m, cursor: 0, offset: 0 }
   }
   return m
 }
@@ -497,11 +528,11 @@ export function View(m: ListModel): string {
   const lines: string[] = []
 
   if (m.showTitle) {
-    lines.push(Style().bold(true).foreground("#7f00ff").render(m.title))
+    lines.push(new Style().bold(true).foreground("#7f00ff").render(m.title))
   }
 
   if (m.showFilter && m.filterState === "filtering") {
-    lines.push(Style().dim(true).render(`Filter: ${m.filterValue}_`))
+    lines.push(new Style().dim(true).render(`Filter: ${m.filterValue}_`))
   }
 
   const contentHeight = m.height - 2
@@ -523,7 +554,7 @@ export function View(m: ListModel): string {
     const total = m.items.length
     const visible = items.length
     const itemName = visible === 1 ? m.itemNameSingular : m.itemNamePlural
-    lines.push(Style().dim(true).render(`${visible} ${itemName}`))
+    lines.push(new Style().dim(true).render(`${visible} ${itemName}`))
   }
 
   if (m.showHelp) {
@@ -533,7 +564,7 @@ export function View(m: ListModel): string {
       m.keyMap.Filter.help,
       m.keyMap.Quit.help,
     ].join(" · ")
-    lines.push(Style().dim(true).render(help))
+    lines.push(new Style().dim(true).render(help))
   }
 
   return lines.join("\n")

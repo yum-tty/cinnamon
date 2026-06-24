@@ -3,6 +3,8 @@
 import type { Model, Msg, Cmd } from "cinnamon-bun"
 import { Style } from "caramel"
 
+declare const setTimeout: any
+
 /**
  * TickMsg is sent when the timer ticks.
  */
@@ -165,6 +167,6 @@ export function TickCmd(m: TimerModel): Cmd {
 export function View(m: TimerModel): string {
   const elapsed = Math.floor(m.elapsed / 1000)
   const remaining = Math.max(0, Math.ceil((m.timeout - m.elapsed) / 1000))
-  const style = m.timedOut ? Style().foreground("red") : Style()
+  const style = m.timedOut ? new Style().foreground("red") : new Style()
   return style.render(`${elapsed}s / ${Math.ceil(m.timeout / 1000)}s`)
 }

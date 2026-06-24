@@ -3,6 +3,8 @@
 import type { Model, Msg, Cmd } from "cinnamon-bun"
 import { Style } from "caramel"
 
+declare const setTimeout: any
+
 /**
  * TickMsg is sent when the stopwatch ticks.
  */
@@ -153,7 +155,7 @@ export function View(m: StopwatchModel): string {
   const minutes = Math.floor(ms / 60000)
   const seconds = Math.floor((ms % 60000) / 1000)
   const centiseconds = Math.floor((ms % 1000) / 10)
-  const style = m.running ? Style().foreground("green") : Style()
+  const style = m.running ? new Style().foreground("green") : new Style()
   return style.render(
     `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(centiseconds).padStart(2, "0")}`,
   )

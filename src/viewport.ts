@@ -78,6 +78,7 @@ export function SetContent(m: ViewportModel, content: string): ViewportModel {
  * GotoTop scrolls to the top.
  */
 export function GotoTop(m: ViewportModel): ViewportModel {
+  if (AtTop(m)) return m
   return { ...m, yOffset: 0 }
 }
 
@@ -93,6 +94,7 @@ export function GotoBottom(m: ViewportModel): ViewportModel {
  * ScrollUp scrolls up by a number of lines.
  */
 export function ScrollUp(m: ViewportModel, n: number = 1): ViewportModel {
+  if (AtTop(m)) return m
   return { ...m, yOffset: Math.max(0, m.yOffset - n) }
 }
 
@@ -100,6 +102,7 @@ export function ScrollUp(m: ViewportModel, n: number = 1): ViewportModel {
  * ScrollDown scrolls down by a number of lines.
  */
 export function ScrollDown(m: ViewportModel, n: number = 1): ViewportModel {
+  if (AtBottom(m)) return m
   const maxOffset = Math.max(0, m.lines.length - m.height)
   return { ...m, yOffset: Math.min(maxOffset, m.yOffset + n) }
 }
@@ -184,10 +187,21 @@ export function ScrollLeft(m: ViewportModel, n: number = 1): ViewportModel {
 }
 
 /**
+ * MaxXOffset returns the maximum horizontal scroll offset.
+ */
+export function MaxXOffset(m: ViewportModel): number {
+  let maxLen = 0
+  for (const line of m.lines) {
+    maxLen = Math.max(maxLen, line.length)
+  }
+  return Math.max(0, maxLen - m.width)
+}
+
+/**
  * ScrollRight scrolls right by n characters.
  */
 export function ScrollRight(m: ViewportModel, n: number = 1): ViewportModel {
-  return { ...m, xOffset: m.xOffset + n }
+  return { ...m, xOffset: Math.min(m.xOffset + n, MaxXOffset(m)) }
 }
 
 /**

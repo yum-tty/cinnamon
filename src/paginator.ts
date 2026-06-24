@@ -36,9 +36,9 @@ export function Paginator(type: PaginatorType = "dots"): PaginatorModel {
     activeDot: "●",
     inactiveDot: "○",
     styles: {
-      active: Style().foreground("#7f00ff"),
-      inactive: Style().foreground("#666666"),
-      arabic: Style().foreground("#AAAAAA"),
+      active: new Style().foreground("#7f00ff"),
+      inactive: new Style().foreground("#666666"),
+      arabic: new Style().foreground("#AAAAAA"),
     },
   }
 }

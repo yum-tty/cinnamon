@@ -26,11 +26,11 @@ export function Help(): HelpModel {
     bindings: [],
     showAll: false,
     styles: {
-      shortKey: Style().bold(true).foreground("#7f00ff"),
-      shortDesc: Style().foreground("#AAAAAA"),
-      fullKey: Style().bold(true).foreground("#7f00ff"),
-      fullDesc: Style().foreground("#AAAAAA"),
-      separator: Style().foreground("#666666"),
+      shortKey: new Style().bold(true).foreground("#7f00ff"),
+      shortDesc: new Style().foreground("#AAAAAA"),
+      fullKey: new Style().bold(true).foreground("#7f00ff"),
+      fullDesc: new Style().foreground("#AAAAAA"),
+      separator: new Style().foreground("#666666"),
     },
   }
 }

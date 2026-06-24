@@ -1,6 +1,7 @@
 // select.ts | select menu component
 
-import type { Model, Msg, Cmd } from "cinnamon-bun"
+import type { Model, Msg, Cmd, View } from "cinnamon-bun"
+import { CreateView } from "cinnamon-bun"
 import { Style } from "caramel"
 
 export interface SelectOption {
@@ -23,7 +24,7 @@ export function Select(
   width: number,
   height: number,
 ): SelectModel {
-  return {
+  const m: SelectModel = {
     options,
     cursor: 0,
     width,
@@ -31,46 +32,46 @@ export function Select(
     focused: true,
     selected: null,
 
-    init(): Cmd {
-      return null
+    init(): [SelectModel, Cmd] {
+      return [m, null]
     },
 
     update(msg: Msg): [SelectModel, Cmd] {
-      if (msg.type !== "key") return [this, null]
-      if (!this.focused) return [this, null]
+      if (!msg || msg.type !== "key") return [m, null]
+      if (!m.focused) return [m, null]
 
       const key = (msg as any).key
       switch (key.name) {
         case "up":
-          return [{ ...this, cursor: Math.max(0, this.cursor - 1) }, null]
+          return [{ ...m, cursor: Math.max(0, m.cursor - 1) }, null]
         case "down":
           return [
             {
-              ...this,
-              cursor: Math.min(this.options.length - 1, this.cursor + 1),
+              ...m,
+              cursor: Math.min(m.options.length - 1, m.cursor + 1),
             },
             null,
           ]
         case "enter":
-          return [{ ...this, selected: this.cursor }, null]
+          return [{ ...m, selected: m.cursor }, null]
         default:
-          return [this, null]
+          return [m, null]
       }
     },
 
-    view(): string {
+    view(): View {
       const lines: string[] = []
 
-      for (let i = 0; i < this.height - 2; i++) {
-        const opt = this.options[i]
+      for (let i = 0; i < m.height - 2; i++) {
+        const opt = m.options[i]
         if (!opt) {
           lines.push("")
           continue
         }
 
-        const isSelected = i === this.cursor
+        const isSelected = i === m.cursor
         const prefix = isSelected ? "▸ " : "  "
-        const name = Style()
+        const name = new Style()
           .bold(isSelected)
           .foreground(isSelected ? "#7f00ff" : "#AAAAAA")
           .render(opt.name)
@@ -78,11 +79,12 @@ export function Select(
         lines.push(prefix + name)
       }
 
-      return Style()
+      return CreateView(new Style()
         .border("rounded")
-        .width(this.width)
-        .height(this.height)
-        .render(lines.join("\n"))
+        .width(m.width)
+        .height(m.height)
+        .render(lines.join("\n")))
     },
   }
+  return m
 }

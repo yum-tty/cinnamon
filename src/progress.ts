@@ -3,6 +3,8 @@
 import type { Model, Msg, Cmd } from "cinnamon-bun"
 import { Style } from "caramel"
 
+declare const setTimeout: any
+
 /**
  * Option is a configuration option for Progress().
  */
@@ -94,10 +96,10 @@ export function Progress(width: number, opts?: Option[]): ProgressModel {
     animating: false,
     targetPercent: 0,
     styles: {
-      bar: Style(),
-      filled: Style().foreground("#7f00ff"),
-      empty: Style().foreground("#333333"),
-      percent: Style().foreground("#AAAAAA"),
+      bar: new Style(),
+      filled: new Style().foreground("#7f00ff"),
+      empty: new Style().foreground("#333333"),
+      percent: new Style().foreground("#AAAAAA"),
     },
   }
   if (opts) {

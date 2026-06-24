@@ -36,7 +36,8 @@
     "url": "https://github.com/yum-tty/cinnamon"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/node": "^26.0.0"
   },
   "dependencies": {
     "caramel": "file:../caramel",

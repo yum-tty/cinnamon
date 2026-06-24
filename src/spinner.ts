@@ -3,6 +3,8 @@
 import type { Model, Msg, Cmd } from "cinnamon-bun"
 import { Style } from "caramel"
 
+declare const setTimeout: any
+
 /**
  * Spinner types with frames and FPS.
  */
@@ -25,7 +27,7 @@ export type SpinnerType = keyof typeof spinners
  * SpinnerModel is the state for the spinner.
  */
 export interface SpinnerModel {
-  spinner: typeof spinners.line
+  spinner: { frames: readonly string[]; fps: number }
   index: number
   style: Style
   suffix: string
@@ -38,7 +40,7 @@ export function Spinner(type: SpinnerType = "line"): SpinnerModel {
   return {
     spinner: spinners[type],
     index: 0,
-    style: Style().foreground("#7f00ff"),
+    style: new Style().foreground("#7f00ff"),
     suffix: "",
   }
 }
