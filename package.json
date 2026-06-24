@@ -1,0 +1,45 @@
+{
+  "name": "cinnamon",
+  "version": "0.1.0",
+  "description": "Common UI components for Cinnamon Bun. A TypeScript port of Bubbles for Bun.",
+  "module": "src/index.ts",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "files": [
+    "src/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "bun --watch src",
+    "typecheck": "bun run --bun tsc --noEmit"
+  },
+  "keywords": [
+    "tui",
+    "terminal",
+    "cli",
+    "components",
+    "bubbles",
+    "bun"
+  ],
+  "author": "yum-tty",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yum-tty/cinnamon"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "dependencies": {
+    "caramel": "github:yum-tty/caramel",
+    "cinnamon-bun": "github:yum-tty/cinnamon-bun"
+  }
+}
