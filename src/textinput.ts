@@ -6,7 +6,7 @@ import { ReadClipboard } from "cinnamon-bun"
 
 export type EchoMode = "normal" | "password" | "none"
 
-export type ValidateFunc = (value: string) => string | null
+export type ValidateFunc = (value: string) => Error | null
 
 export interface StyleState {
   text: StyleType
@@ -101,7 +101,7 @@ export function DefaultKeyMap(): TextInputKeyMap {
 }
 
 export interface TextInputModel {
-  err: string | null
+  err: Error | null
   prompt: string
   placeholder: string
   echoMode: EchoMode
@@ -181,7 +181,7 @@ export function SetValue(m: TextInputModel, s: string): TextInputModel {
   return setValueInternal(m, runes, err)
 }
 
-function setValueInternal(m: TextInputModel, value: string, err: string | null): TextInputModel {
+function setValueInternal(m: TextInputModel, value: string, err: Error | null): TextInputModel {
   const empty = m.value.length === 0
   let newValue = value
   if (m.charLimit > 0 && value.length > m.charLimit) {
@@ -225,8 +225,7 @@ export function Focus(m: TextInputModel): [TextInputModel, Cmd] {
 }
 
 export function Blur(m: TextInputModel): TextInputModel {
-  const vc = CursorBlur(m.virtualCursor)
-  return { ...m, focus: false, virtualCursor: vc }
+  return { ...m, focus: false, virtualCursor: CursorBlur(m.virtualCursor) }
 }
 
 export function Reset(m: TextInputModel): TextInputModel {
@@ -301,7 +300,7 @@ function sanitize(s: string): string {
   return s.replace(/\t/g, " ").replace(/\n/g, " ")
 }
 
-function validate(m: TextInputModel, v: string): string | null {
+function validate(m: TextInputModel, v: string): Error | null {
   if (m.validate) {
     return m.validate(v)
   }
@@ -539,12 +538,12 @@ export function Cursor(m: TextInputModel): RealCursor | null {
   }
 }
 
-export function Blink(m: TextInputModel): Cmd {
-  return CursorView(m.virtualCursor) ? () => Promise.resolve({ type: "initialBlink" } as any) : null
+export function Blink(): Cmd {
+  return () => Promise.resolve({ type: "initialBlink" } as any)
 }
 
-export function Paste(_m: TextInputModel): Cmd {
-  return ReadClipboard()
+export function Paste(): Cmd {
+  return () => ReadClipboard()
 }
 
 export function Update(m: TextInputModel, msg: Msg): [TextInputModel, Cmd] {
@@ -611,7 +610,7 @@ export function Update(m: TextInputModel, msg: Msg): [TextInputModel, Cmd] {
   } else if (Matches(newM.keyMap.DeleteBeforeCursor as any, key)) {
     newM = deleteBeforeCursor(newM)
   } else if (Matches(newM.keyMap.Paste as any, key)) {
-    return [newM, Paste(newM)]
+    return [newM, Paste()]
   } else if (Matches(newM.keyMap.DeleteWordForward as any, key)) {
     newM = deleteWordForward(newM)
   } else if (Matches(newM.keyMap.NextSuggestion as any, key)) {

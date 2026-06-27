@@ -12,6 +12,7 @@ import {
   type ViewportModel,
   Viewport,
   SetContent,
+  GetContent,
   Height as VpHeight,
   SetHeight as VpSetHeight,
   Width as VpWidth,
@@ -197,7 +198,7 @@ export function Blur(m: TableModel): void {
 }
 
 export function View(m: TableModel): string {
-  return headersView(m) + "\n" + m.viewport.content
+  return headersView(m) + "\n" + GetContent(m.viewport)
 }
 
 export function HelpView(m: TableModel): string {

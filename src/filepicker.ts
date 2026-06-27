@@ -175,6 +175,15 @@ function formatBytes(bytes: number): string {
 }
 
 export function IsHidden(name: string): boolean {
+  if (process.platform === "win32") {
+    try {
+      const { execSync } = require("child_process") as typeof import("child_process")
+      const output = execSync(`attrib "${name}"`, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })
+      return output.includes(" H ")
+    } catch {
+      return name.startsWith(".")
+    }
+  }
   return name.startsWith(".")
 }
 

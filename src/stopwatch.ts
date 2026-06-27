@@ -1,162 +1,163 @@
 // stopwatch.ts | stopwatch component (bubbles port)
 
 import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { Style } from "caramel"
 
 declare const setTimeout: any
 
-/**
- * TickMsg is sent when the stopwatch ticks.
- */
+let stopwatchId = 0
+
+export type Option = (m: StopwatchModel) => void
+
+export function WithInterval(interval: number): Option {
+  return (m) => {
+    m.interval = interval
+  }
+}
+
 export interface TickMsg {
   type: "stopwatchTick"
   id: number
+  tag: number
 }
 
-/**
- * StartStopMsg is sent when the stopwatch starts or stops.
- */
 export interface StartStopMsg {
   type: "stopwatchStartStop"
   id: number
   running: boolean
 }
 
-/**
- * ResetMsg is sent when the stopwatch is reset.
- */
 export interface ResetMsg {
   type: "stopwatchReset"
   id: number
 }
 
-/**
- * StopwatchModel is the state for the stopwatch.
- */
 export interface StopwatchModel {
   id: number
   interval: number
   elapsed: number
   running: boolean
-  startTime: number | null
-  resumeTime: number
+  tag: number
 }
 
-let stopwatchId = 0
-
-/**
- * Stopwatch creates a new stopwatch model.
- */
-export function Stopwatch(interval: number = 100): StopwatchModel {
-  return {
+export function Stopwatch(...opts: Option[]): StopwatchModel {
+  const m: StopwatchModel = {
     id: stopwatchId++,
-    interval,
+    interval: 100,
     elapsed: 0,
     running: false,
-    startTime: null,
-    resumeTime: 0,
+    tag: 0,
   }
+  for (const opt of opts) {
+    opt(m)
+  }
+  return m
 }
 
-/**
- * Start starts the stopwatch.
- */
+export function ID(m: StopwatchModel): number {
+  return m.id
+}
+
+export function Init(m: StopwatchModel): Cmd {
+  return Start_cmd(m)
+}
+
 export function Start(m: StopwatchModel): [StopwatchModel, Cmd] {
-  return [
-    {
-      ...m,
-      running: true,
-      startTime: Date.now() - m.elapsed,
-    },
-    TickCmd(m),
-  ]
+  return [{ ...m, running: true, tag: m.tag + 1 }, Start_cmd(m)]
 }
 
-/**
- * Stop stops the stopwatch.
- */
-export function Stop(m: StopwatchModel): StopwatchModel {
-  if (!m.running || !m.startTime) return m
-  return {
-    ...m,
-    running: false,
-    elapsed: Date.now() - m.startTime,
-    startTime: null,
-  }
+function Start_cmd(m: StopwatchModel): Cmd {
+  return () =>
+    new Promise((resolve) => {
+      resolve({ type: "stopwatchStartStop", id: m.id, running: true } as StartStopMsg)
+    })
 }
 
-/**
- * Toggle toggles the stopwatch.
- */
+export function Stop(m: StopwatchModel): [StopwatchModel, Cmd] {
+  return [{ ...m, running: false }, stopCmd(m.id)]
+}
+
 export function Toggle(m: StopwatchModel): [StopwatchModel, Cmd] {
-  if (m.running) {
-    return [Stop(m), null]
-  }
+  if (m.running) return Stop(m)
   return Start(m)
 }
 
-/**
- * Reset resets the stopwatch.
- */
-export function Reset(m: StopwatchModel): StopwatchModel {
-  return { ...m, elapsed: 0, running: false, startTime: null }
+export function Reset(m: StopwatchModel): [StopwatchModel, Cmd] {
+  return [{ ...m, elapsed: 0, running: false, tag: m.tag + 1 }, resetCmd(m.id)]
 }
 
-/**
- * Running returns whether the stopwatch is running.
- */
 export function Running(m: StopwatchModel): boolean {
   return m.running
 }
 
-/**
- * Elapsed returns the elapsed time in milliseconds.
- */
 export function Elapsed(m: StopwatchModel): number {
-  if (m.running && m.startTime) {
-    return Date.now() - m.startTime
-  }
   return m.elapsed
 }
 
-/**
- * Update handles stopwatch messages.
- */
 export function Update(m: StopwatchModel, msg: Msg): [StopwatchModel, Cmd] {
   if (!msg || !("type" in msg)) return [m, null]
 
   switch (msg.type) {
-    case "stopwatchTick":
-      if (!m.running) return [m, null]
-      return [m, TickCmd(m)]
+    case "stopwatchStartStop": {
+      const smsg = msg as StartStopMsg
+      if (smsg.id !== m.id) return [m, null]
+      const newM = { ...m, running: smsg.running }
+      return [newM, newM.running ? tickCmd(newM) : null]
+    }
+    case "stopwatchReset": {
+      const rmsg = msg as ResetMsg
+      if (rmsg.id !== m.id) return [m, null]
+      return [{ ...m, elapsed: 0 }, null]
+    }
+    case "stopwatchTick": {
+      const tmsg = msg as TickMsg
+      if (!m.running || tmsg.id !== m.id) return [m, null]
+      if (tmsg.tag > 0 && tmsg.tag !== m.tag) return [m, null]
+      const newM = { ...m, elapsed: m.elapsed + m.interval, tag: m.tag + 1 }
+      return [newM, tickCmd(newM)]
+    }
     default:
       return [m, null]
   }
 }
 
-/**
- * TickCmd returns a command that sends a tick message.
- */
-export function TickCmd(m: StopwatchModel): Cmd {
-  return () => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ type: "stopwatchTick", id: m.id } as any)
-      }, m.interval)
-    })
-  }
+export function View(m: StopwatchModel): string {
+  return formatDuration(m.elapsed)
 }
 
-/**
- * View renders the stopwatch.
- */
-export function View(m: StopwatchModel): string {
-  const ms = Elapsed(m)
-  const minutes = Math.floor(ms / 60000)
-  const seconds = Math.floor((ms % 60000) / 1000)
-  const centiseconds = Math.floor((ms % 1000) / 10)
-  const style = m.running ? new Style().foreground("green") : new Style()
-  return style.render(
-    `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(centiseconds).padStart(2, "0")}`,
-  )
+function tickCmd(m: StopwatchModel): Cmd {
+  return () =>
+    new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ type: "stopwatchTick", id: m.id, tag: m.tag } as TickMsg)
+      }, m.interval)
+    })
+}
+
+function stopCmd(id: number): Cmd {
+  return () =>
+    new Promise((resolve) => {
+      resolve({ type: "stopwatchStartStop", id, running: false } as StartStopMsg)
+    })
+}
+
+function resetCmd(id: number): Cmd {
+  return () =>
+    new Promise((resolve) => {
+      resolve({ type: "stopwatchReset", id } as ResetMsg)
+    })
+}
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  if (hours > 0) {
+    return `${hours}h${String(minutes).padStart(2, "0")}m${String(seconds).padStart(2, "0")}s`
+  }
+  if (minutes > 0) {
+    return `${minutes}m${String(seconds).padStart(2, "0")}s`
+  }
+  return `${seconds}s`
 }

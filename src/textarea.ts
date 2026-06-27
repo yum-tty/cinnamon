@@ -571,17 +571,25 @@ export function Focus(m: TextareaModel): [TextareaModel, Cmd] {
   return [m, cmd]
 }
 
-export function Blur(m: TextareaModel): [TextareaModel, Cmd] {
+export function Blur(m: TextareaModel): void {
   m.focus = false
   m.virtualCursor = CursorBlur(m.virtualCursor)
-  return [m, null]
+}
+
+export function Blink(): Cmd {
+  return () => Promise.resolve({ type: "initialBlink" } as any)
+}
+
+export function Paste(): Cmd {
+  return ReadClipboard
 }
 
 export function Reset(m: TextareaModel): TextareaModel {
   m.value = [""]
   m.col = 0
   m.row = 0
-  m.viewport = GotoTop(m.viewport)
+  const [vpTop] = GotoTop(m.viewport)
+  m.viewport = vpTop
   m = SetCursorColumn(m, 0)
   m = recalculateHeight(m)
   return m
