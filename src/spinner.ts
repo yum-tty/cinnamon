@@ -17,7 +17,7 @@ export const spinners = {
   line: { frames: ["|", "/", "-", "\\"], fps: 10 },
   dot: { frames: ["\u28FE ", "\u28FD ", "\u28FB ", "\u28BF ", "\u287F ", "\u28DF ", "\u28EF ", "\u28F7 "], fps: 10 },
   miniDot: { frames: ["\u280B", "\u2819", "\u2839", "\u2838", "\u283C", "\u2834", "\u2826", "\u2827", "\u2807", "\u280F"], fps: 12 },
-  jump: { frames: ["\u2884", "\u2882", "\u2881", "\u2841", "\u2808", "\u2840", "\x2820"], fps: 10 },
+  jump: { frames: ["\u2884", "\u2882", "\u2881", "\u2841", "\u2808", "\u2840", "\u2860"], fps: 10 },
   pulse: { frames: ["\u2588", "\u2593", "\u2592", "\u2591"], fps: 8 },
   points: { frames: ["\u2219\u2219\u2219", "\u25CF\u2219\u2219", "\u2219\u25CF\u2219", "\u2219\u2219\u25CF"], fps: 7 },
   glob: { frames: ["\u23CE\u2800", "\u23CE\u2840", "\u23CE\u2844", "\u23CE\u28C7", "\u23CE\u28E7", "\u23CE\u28E7"], fps: 10 },
