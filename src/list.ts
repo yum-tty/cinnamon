@@ -511,7 +511,8 @@ export function CursorUp(m: ListModel): ListModel {
 export function CursorDown(m: ListModel): ListModel {
   if (m.cursor < m.filteredItems.length - 1) {
     const newCursor = m.cursor + 1
-    const newOffset = newCursor >= m.offset + m.height ? newCursor - m.height + 1 : m.offset
+    const ch = getContentHeight(m)
+    const newOffset = newCursor >= m.offset + ch ? newCursor - ch + 1 : m.offset
     return { ...m, cursor: newCursor, offset: newOffset }
   }
   if (m.infiniteScrolling) {
@@ -579,7 +580,9 @@ export function GoToEnd(m: ListModel): ListModel {
  * PrevPage goes to the previous page.
  */
 export function PrevPage(m: ListModel): ListModel {
-  return { ...m, cursor: Math.max(0, m.cursor - m.height) }
+  const ch = getContentHeight(m)
+  const newCursor = Math.max(0, m.cursor - ch)
+  return { ...m, cursor: newCursor, offset: Math.max(0, newCursor - ch + 1) }
 }
 
 /**
@@ -587,7 +590,9 @@ export function PrevPage(m: ListModel): ListModel {
  */
 export function NextPage(m: ListModel): ListModel {
   const items = VisibleItems(m)
-  return { ...m, cursor: Math.min(items.length - 1, m.cursor + m.height) }
+  const ch = getContentHeight(m)
+  const newCursor = Math.min(items.length - 1, m.cursor + ch)
+  return { ...m, cursor: newCursor, offset: Math.max(0, newCursor - ch + 1) }
 }
 
 /**
@@ -752,7 +757,8 @@ function statusView(m: ListModel): string {
 function paginationView(m: ListModel): string {
   const items = VisibleItems(m)
   if (items.length === 0) return ""
-  return m.styles.paginationStyle.render(`Page ${Math.floor(m.cursor / Math.max(1, m.height - 2)) + 1}`)
+  const perPage = Math.max(1, getContentHeight(m))
+  return m.styles.paginationStyle.render(`Page ${Math.floor(m.cursor / perPage) + 1}`)
 }
 
 function helpView(m: ListModel): string {
@@ -853,6 +859,29 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
   return [m, null]
 }
 
+function stringHeight(str: string): number {
+  if (str === "") return 0
+  return str.split("\n").length
+}
+
+function getContentHeight(m: ListModel): number {
+  let h = m.height
+  if (m.showTitle || (m.showFilter && m.filteringEnabled)) {
+    h -= stringHeight(titleView(m))
+  }
+  if (m.showStatusBar) {
+    h -= stringHeight(statusView(m))
+  }
+  if (m.showPagination) {
+    const items = VisibleItems(m)
+    if (items.length > 0) h -= 1
+  }
+  if (m.showHelp) {
+    h -= stringHeight(helpView(m))
+  }
+  return Math.max(0, h)
+}
+
 /**
  * View renders the list.
  */
@@ -867,7 +896,7 @@ export function View(m: ListModel): string {
     sections.push(statusView(m))
   }
 
-  const contentHeight = m.height - 2
+  const contentHeight = getContentHeight(m)
   const items = VisibleItems(m)
   const contentLines: string[] = []
 
