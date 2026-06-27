@@ -4,6 +4,7 @@ import type { Model, Msg, Cmd } from "cinnamon-bun"
 import { Style } from "caramel"
 import { type Binding, NewBinding, Matches, type KeyMap } from "./key"
 import { type SpinnerModel, Spinner as NewSpinner, Tick as SpinnerTick, SpinCmd, View as SpinnerView } from "./spinner"
+import { type TextInputModel, New as TextInputNew, SetValue as TextInputSetValue, Focus as TextInputFocus, Blur as TextInputBlur, Reset as TextInputReset, CursorEnd as TextInputCursorEnd, Update as TextInputUpdate, View as TextInputView, Value as TextInputValue, SetWidth as TextInputSetWidth } from "./textinput"
 
 declare const setTimeout: any
 
@@ -299,7 +300,7 @@ export interface ListModel {
   height: number
   title: string
   filterState: FilterState
-  filterValue: string
+  filterInput: TextInputModel
   keyMap: ListKeyMap
   showTitle: boolean
   showFilter: boolean
@@ -331,6 +332,11 @@ export function List(
   const sp = NewSpinner("line")
   sp.style = styles.spinner
 
+  const filterInput = TextInputNew()
+  filterInput.prompt = "Filter: "
+  filterInput.charLimit = 64
+  const [focusedFilterInput] = TextInputFocus(filterInput)
+
   return {
     items,
     filteredItems: items,
@@ -341,7 +347,7 @@ export function List(
     height,
     title: "List",
     filterState: "unfiltered",
-    filterValue: "",
+    filterInput: focusedFilterInput,
     keyMap: DefaultListKeyMap(),
     showTitle: true,
     showFilter: true,
@@ -471,7 +477,9 @@ export function SetFilterText(m: ListModel, filter: string): ListModel {
   const targets = m.items.map((item) => item.filterValue())
   const ranks = DefaultFilter(filter, targets)
   const filteredItems = ranks.map((r) => m.items[r.index]!)
-  return { ...m, filterState: "filtered", filterValue: filter, filteredItems }
+  let filterInput = TextInputSetValue(m.filterInput, filter)
+  filterInput = TextInputCursorEnd(filterInput)
+  return { ...m, filterState: "filtered", filterInput, filteredItems }
 }
 
 /**
@@ -593,7 +601,7 @@ export function FilterStateFn(m: ListModel): FilterState {
  * FilterValue returns the current filter value.
  */
 export function FilterValue(m: ListModel): string {
-  return m.filterValue
+  return TextInputValue(m.filterInput)
 }
 
 /**
@@ -656,7 +664,8 @@ export function SetShowHelp(m: ListModel, show: boolean): ListModel {
  * SetWidth sets the list width.
  */
 export function SetWidth(m: ListModel, width: number): ListModel {
-  return { ...m, width }
+  const newFilterInput = TextInputSetWidth(m.filterInput, width)
+  return { ...m, width, filterInput: newFilterInput }
 }
 
 /**
@@ -670,7 +679,8 @@ export function SetHeight(m: ListModel, height: number): ListModel {
  * SetSize sets width and height.
  */
 export function SetSize(m: ListModel, width: number, height: number): ListModel {
-  return { ...m, width, height }
+  const newFilterInput = TextInputSetWidth(m.filterInput, width)
+  return { ...m, width, height, filterInput: newFilterInput }
 }
 
 /**
@@ -684,17 +694,18 @@ export function NewStatusMessage(m: ListModel, message: string): ListModel {
  * ResetFilter resets the filter.
  */
 export function ResetFilter(m: ListModel): ListModel {
+  const resetFilterInput = TextInputReset(m.filterInput)
   return {
     ...m,
     filterState: "unfiltered",
-    filterValue: "",
+    filterInput: resetFilterInput,
     filteredItems: m.items,
   }
 }
 
 function titleView(m: ListModel): string {
   if (m.showFilter && m.filterState === "filtering") {
-    return new Style().dim(true).render(`Filter: ${m.filterValue}_`)
+    return TextInputView(m.filterInput)
   }
   if (m.showTitle) {
     let view = m.styles.title.render(m.title)
@@ -723,7 +734,7 @@ function statusView(m: ListModel): string {
     status = m.styles.statusEmpty.render("No " + m.itemNamePlural)
   } else {
     if (m.filterState === "filtered") {
-      const f = m.filterValue.slice(0, 10)
+      const f = TextInputValue(m.filterInput).slice(0, 10)
       status += `"${f}" `
     }
     status += itemsDisplay
@@ -786,35 +797,29 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
 
   if (m.filterState === "filtering") {
     if (Matches(m.keyMap.CancelWhileFiltering as any, key)) {
-      return [{ ...m, filterState: "unfiltered", filterValue: "" }, null]
+      const resetFilterInput = TextInputReset(m.filterInput)
+      return [{ ...m, filterState: "unfiltered", filterInput: resetFilterInput }, null]
     }
     if (Matches(m.keyMap.AcceptWhileFiltering as any, key)) {
+      const blurredInput = TextInputBlur(m.filterInput)
       if (m.filteredItems.length === 0) {
-        return [{ ...m, filterState: "unfiltered", filterValue: "", cursor: 0 }, null]
+        const resetInput = TextInputReset(blurredInput)
+        return [{ ...m, filterState: "unfiltered", filterInput: resetInput, cursor: 0 }, null]
       }
       const newCursor = Math.min(m.cursor, m.filteredItems.length - 1)
-      return [{ ...m, filterState: "filtered", cursor: newCursor }, null]
+      return [{ ...m, filterState: "filtered", filterInput: blurredInput, cursor: newCursor }, null]
     }
-    if (key.name === "backspace") {
-      const newFilter = m.filterValue.slice(0, -1)
-      if (newFilter.length === 0) {
-        return [{ ...m, filterValue: "", filteredItems: m.items, cursor: 0 }, null]
-      }
+    const [newFilterInput, inputCmd] = TextInputUpdate(m.filterInput, msg)
+    const newValue = TextInputValue(newFilterInput)
+    const oldValue = TextInputValue(m.filterInput)
+    if (newValue !== oldValue) {
       const targets = m.items.map((item) => item.filterValue())
-      const ranks = DefaultFilter(newFilter, targets)
+      const ranks = DefaultFilter(newValue, targets)
       const filteredItems = ranks.map((r) => m.items[r.index]!)
       const newCursor = Math.min(m.cursor, Math.max(0, filteredItems.length - 1))
-      return [{ ...m, filterValue: newFilter, filteredItems, cursor: newCursor }, null]
+      return [{ ...m, filterInput: newFilterInput, filteredItems, cursor: newCursor }, inputCmd]
     }
-    if (key.name && key.name.length === 1 && !key.ctrl) {
-      const newFilter = m.filterValue + key.name
-      const targets = m.items.map((item) => item.filterValue())
-      const ranks = DefaultFilter(newFilter, targets)
-      const filteredItems = ranks.map((r) => m.items[r.index]!)
-      const newCursor = Math.min(m.cursor, Math.max(0, filteredItems.length - 1))
-      return [{ ...m, filterValue: newFilter, filteredItems, cursor: newCursor }, null]
-    }
-    return [m, null]
+    return [{ ...m, filterInput: newFilterInput }, inputCmd]
   }
 
   if (Matches(m.keyMap.ClearFilter as any, key)) {
@@ -836,7 +841,9 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
     return [GoToEnd(m), null]
   }
   if (Matches(m.keyMap.Filter as any, key) && m.filteringEnabled) {
-    return [{ ...m, filterState: "filtering", filterValue: "" }, null]
+    const resetFilterInput = TextInputReset(m.filterInput)
+    const [focusedInput] = TextInputFocus(resetFilterInput)
+    return [{ ...m, filterState: "filtering", filterInput: focusedInput }, null]
   }
   if (Matches(m.keyMap.ShowFullHelp as any, key) || Matches(m.keyMap.CloseFullHelp as any, key)) {
     // Toggle help visibility - for now just a no-op

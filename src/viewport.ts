@@ -145,7 +145,7 @@ export function PastBottom(m: ViewportModel): boolean {
 }
 
 export function ScrollPercent(m: ViewportModel): number {
-  const total = m.lines.length
+  const total = calculateTotalLines(m)
   if (m.height >= total) return 1
   return clamp(m.yOffset / (total - m.height), 0, 1)
 }
@@ -238,7 +238,7 @@ export function HalfPageUp(m: ViewportModel): ViewportModel {
 }
 
 export function TotalLineCount(m: ViewportModel): number {
-  return m.lines.length
+  return calculateTotalLines(m)
 }
 
 export function VisibleLineCount(m: ViewportModel): number {
@@ -337,7 +337,63 @@ function clamp(v: number, low: number, high: number): number {
 }
 
 function maxYOffset(m: ViewportModel): number {
-  return Math.max(0, m.lines.length - m.height)
+  const total = calculateTotalLines(m)
+  return Math.max(0, total - m.height)
+}
+
+function calculateTotalLines(m: ViewportModel): number {
+  if (!m.softWrap) return m.lines.length
+
+  const mw = maxWidth(m)
+  if (mw === 0) return m.lines.length
+
+  let total = 0
+  for (const line of m.lines) {
+    const lw = getStringWidth(line)
+    total += Math.max(1, Math.ceil(lw / mw))
+  }
+  return total
+}
+
+function calculateLine(m: ViewportModel, yoffset: number): { total: number; ridx: number; voffset: number } {
+  if (!m.softWrap) {
+    return {
+      total: m.lines.length,
+      ridx: Math.min(yoffset, m.lines.length),
+      voffset: 0,
+    }
+  }
+
+  const mw = maxWidth(m)
+  if (mw === 0) {
+    return {
+      total: m.lines.length,
+      ridx: Math.min(yoffset, m.lines.length),
+      voffset: 0,
+    }
+  }
+
+  let total = 0
+  let ridx = m.lines.length
+  let voffset = 0
+
+  for (let i = 0; i < m.lines.length; i++) {
+    const lw = getStringWidth(m.lines[i]!)
+    const lineHeight = Math.max(1, Math.ceil(lw / mw))
+
+    if (yoffset >= total && yoffset < total + lineHeight) {
+      ridx = i
+      voffset = yoffset - total
+    }
+    total += lineHeight
+  }
+
+  if (yoffset >= total) {
+    ridx = m.lines.length
+    voffset = 0
+  }
+
+  return { total, ridx, voffset }
 }
 
 function maxXOffset(m: ViewportModel): number {
@@ -367,9 +423,8 @@ function visibleLines(m: ViewportModel): string[] {
   const mw = maxWidth(m)
   if (mh === 0 || mw === 0) return []
 
-  const total = m.lines.length
-  const ridx = Math.min(m.yOffset, total)
-  const bottom = Math.min(ridx + mh, total)
+  const { total, ridx, voffset } = calculateLine(m, m.yOffset)
+  const bottom = Math.min(ridx + mh, m.lines.length)
   const lines = m.lines.slice(ridx, bottom).map((l) => l)
 
   if (m.leftGutterFunc) {
@@ -382,9 +437,12 @@ function visibleLines(m: ViewportModel): string[] {
     lines.push("")
   }
 
-  if ((m.xOffset === 0 && m.longestLineWidth <= mw) || mw === 0) return lines
+  if ((m.xOffset === 0 && m.longestLineWidth <= mw) || mw === 0) {
+    if (m.softWrap) return softWrap(lines, mw, mh, ridx, voffset, m.leftGutterFunc)
+    return lines
+  }
 
-  if (m.softWrap) return softWrap(lines, mw, mh, ridx)
+  if (m.softWrap) return softWrap(lines, mw, mh, ridx, voffset, m.leftGutterFunc)
 
   for (let i = 0; i < lines.length; i++) {
     lines[i] = truncateStr(lines[i]!, m.xOffset, m.xOffset + mw)
@@ -392,19 +450,31 @@ function visibleLines(m: ViewportModel): string[] {
   return lines
 }
 
-function softWrap(lines: string[], maxW: number, maxH: number, ridx: number): string[] {
+function softWrap(lines: string[], maxW: number, maxH: number, ridx: number, voffset: number, gutterFunc?: GutterFunc): string[] {
   const wrapped: string[] = []
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!
     const lw = getStringWidth(line)
-    if (lw <= maxW) { wrapped.push(line); continue }
+    if (lw <= maxW) {
+      if (gutterFunc) {
+        wrapped.push(gutterFunc({ index: i + ridx, totalLines: 0, soft: false }) + line)
+      } else {
+        wrapped.push(line)
+      }
+      continue
+    }
     let idx = 0
     while (lw > idx) {
-      wrapped.push(truncateStr(line, idx, maxW + idx))
+      const truncatedLine = truncateStr(line, idx, maxW + idx)
+      if (gutterFunc) {
+        wrapped.push(gutterFunc({ index: i + ridx, totalLines: 0, soft: idx > 0 }) + truncatedLine)
+      } else {
+        wrapped.push(truncatedLine)
+      }
       idx += maxW
     }
   }
-  return wrapped.slice(0, maxH)
+  return wrapped.slice(voffset, voffset + maxH)
 }
 
 function truncateStr(str: string, start: number, end: number): string {
