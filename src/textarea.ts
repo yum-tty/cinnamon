@@ -510,8 +510,8 @@ export function setCursorLineRelative(m: TextareaModel, delta: number): Textarea
     for (let i = 0; i < delta; i++) {
       if (li.rowOffset + 1 >= li.height && m.row < m.value.length - 1) {
         m.row++
-        m.col = 0
-      } else {
+        m.col = Math.min(m.col, m.value[m.row]!.length)
+      } else if (m.value[m.row]!.length > 0) {
         m.col = Math.min(li.startColumn + li.width + trailingSpace, m.value[m.row]!.length - 1)
       }
     }
@@ -520,8 +520,8 @@ export function setCursorLineRelative(m: TextareaModel, delta: number): Textarea
       const curLi = LineInfo_fn(m)
       if (curLi.rowOffset <= 0 && m.row > 0) {
         m.row--
-        m.col = m.value[m.row]!.length
-      } else {
+        m.col = Math.min(m.col, m.value[m.row]!.length)
+      } else if (m.value[m.row]!.length > 0) {
         m.col = curLi.startColumn - trailingSpace
       }
     }
@@ -1267,7 +1267,7 @@ function viewFn(m: TextareaModel): string {
           s.push(CursorView(m.virtualCursor))
         } else {
           m.virtualCursor.char = displayWrappedLine.charAt(lineInfo.columnOffset) || " "
-          s.push(style.render(CursorView(m.virtualCursor)))
+          s.push(CursorView(m.virtualCursor))
           s.push(style.render(displayWrappedLine.slice(lineInfo.columnOffset + 1)))
         }
       } else {
