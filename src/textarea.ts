@@ -240,6 +240,7 @@ export interface TextareaModel {
   maxHeight: number
   maxWidth: number
   dynamicHeight: boolean
+  softWrap: boolean
   minHeight: number
   maxContentHeight: number
   styles: TextareaStyles
@@ -275,6 +276,7 @@ export function New(): TextareaModel {
     maxHeight: DEFAULT_MAX_HEIGHT,
     maxWidth: DEFAULT_MAX_WIDTH,
     dynamicHeight: false,
+    softWrap: true,
     minHeight: 0,
     maxContentHeight: 0,
     styles,
@@ -314,6 +316,16 @@ export function VirtualCursor(m: TextareaModel): boolean {
 export function SetVirtualCursor(m: TextareaModel, v: boolean): TextareaModel {
   m.useVirtualCursor = v
   updateVirtualCursorStyle(m)
+  return m
+}
+
+export function SoftWrap(m: TextareaModel): boolean {
+  return m.softWrap
+}
+
+export function SetSoftWrap(m: TextareaModel, v: boolean): TextareaModel {
+  m.softWrap = v
+  m.cache = new Map()
   return m
 }
 
@@ -921,6 +933,19 @@ export function PageDown_fn(m: TextareaModel): TextareaModel {
 }
 
 function memoizedWrap(m: TextareaModel, lineArr: string, width: number): string[] {
+  if (!m.softWrap) {
+    if (getStringWidth(lineArr) <= width) return [lineArr]
+    let truncated = ""
+    let w = 0
+    for (const ch of lineArr) {
+      const cw = getStringWidth(ch)
+      if (w + cw > width) break
+      truncated += ch
+      w += cw
+    }
+    return [truncated]
+  }
+
   const key = lineArr + "\0" + width.toString()
   const cached = m.cache.get(key)
   if (cached) return cached

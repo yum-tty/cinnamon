@@ -26,6 +26,8 @@ export interface Column {
   Width: number
 }
 
+export type StyleFunc = (row: number, col: number) => Style
+
 export interface TableKeyMap {
   LineUp: Binding
   LineDown: Binding
@@ -86,6 +88,7 @@ export interface TableModel {
   viewport: ViewportModel
   start: number
   end: number
+  styleFunc: StyleFunc | null
 }
 
 export type Option = (m: TableModel) => void
@@ -102,6 +105,7 @@ export function New(...opts: Option[]): TableModel {
     rows: [],
     start: 0,
     end: 0,
+    styleFunc: null,
   }
 
   for (const opt of opts) {
@@ -152,6 +156,17 @@ export function WithKeyMap(km: TableKeyMap): Option {
   return (m) => {
     m.KeyMap = km
   }
+}
+
+export function WithStyleFunc(fn: StyleFunc): Option {
+  return (m) => {
+    m.styleFunc = fn
+  }
+}
+
+export function SetStyleFunc(m: TableModel, fn: StyleFunc | null): void {
+  m.styleFunc = fn
+  UpdateViewport(m)
 }
 
 export function Update(m: TableModel, msg: Msg): [TableModel, Cmd] {
@@ -358,7 +373,8 @@ function renderRow(m: TableModel, r: number): string {
     if (col.Width <= 0) continue
     const value = m.rows[r]?.[i] ?? ""
     const s = new Style().width(col.Width).maxWidth(col.Width).inline(true)
-    const renderedCell = m.styles.Cell.render(s.render(Truncate(value, col.Width, "\u2026")))
+    const cellStyle = m.styleFunc ? m.styleFunc(r, i) : m.styles.Cell
+    const renderedCell = cellStyle.render(s.render(Truncate(value, col.Width, "\u2026")))
     cells.push(renderedCell)
   }
 
