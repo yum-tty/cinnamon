@@ -674,8 +674,10 @@ export function View(m: TextInputModel): string {
         v += CursorView(vc)
       }
     } else {
-      let vc = SetChar(m.virtualCursor, " ")
-      v += CursorView(vc)
+      if (m.focus) {
+        let vc = SetChar(m.virtualCursor, " ")
+        v += CursorView(vc)
+      }
     }
   }
 
