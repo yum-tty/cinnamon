@@ -594,7 +594,7 @@ export function Blink(): Cmd {
 }
 
 export function Paste(): Cmd {
-  return ReadClipboard
+  return () => ReadClipboard()
 }
 
 export function Reset(m: TextareaModel): TextareaModel {
@@ -1003,13 +1003,12 @@ function mergeLineBelow(m: TextareaModel, row: number): TextareaModel {
 
   m.value[row] = m.value[row]! + m.value[row + 1]!
 
-  for (let i = row + 1; i < m.value.length - 1; i++) {
+  const origLen = m.value.length
+  for (let i = row + 1; i < origLen - 1; i++) {
     m.value[i] = m.value[i + 1]!
   }
 
-  if (m.value.length > 0) {
-    m.value = m.value.slice(0, m.value.length - 1)
-  }
+  m.value = m.value.slice(0, origLen - 1)
 
   return m
 }

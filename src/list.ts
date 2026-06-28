@@ -468,9 +468,12 @@ export function StopSpinner(m: ListModel): ListModel {
  * DisableQuitKeybindings disables the quit and force quit keybindings.
  */
 export function DisableQuitKeybindings(m: ListModel): ListModel {
-  m.keyMap.Quit.SetEnabled(false)
-  m.keyMap.ForceQuit.SetEnabled(false)
-  return { ...m, disableQuitKeybindings: true }
+  const newKeyMap = { ...m.keyMap }
+  newKeyMap.Quit = { ...m.keyMap.Quit } as any
+  newKeyMap.ForceQuit = { ...m.keyMap.ForceQuit } as any
+  newKeyMap.Quit.SetEnabled(false)
+  newKeyMap.ForceQuit.SetEnabled(false)
+  return { ...m, keyMap: newKeyMap, disableQuitKeybindings: true }
 }
 
 /**
@@ -920,16 +923,24 @@ export function View(m: ListModel): string {
   const contentHeight = getContentHeight(m)
   const items = VisibleItems(m)
   const contentLines: string[] = []
+  const delegateHeight = m.delegate.Height() || 1
 
-  for (let i = 0; i < contentHeight; i++) {
+  let linesUsed = 0
+  for (let i = 0; linesUsed < contentHeight; i++) {
     const itemIndex = m.offset + i
     if (itemIndex < items.length) {
       const item = items[itemIndex]!
-      let line = ""
-      m.delegate.Render((s) => (line += s), m, itemIndex, item)
-      contentLines.push(line)
+      const itemLines: string[] = []
+      m.delegate.Render((s) => itemLines.push(s), m, itemIndex, item)
+      for (const line of itemLines) {
+        if (linesUsed < contentHeight) {
+          contentLines.push(line)
+          linesUsed++
+        }
+      }
     } else {
       contentLines.push("")
+      linesUsed++
     }
   }
 

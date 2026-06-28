@@ -147,8 +147,10 @@ export function Update(m: ProgressModel, msg: Msg): [ProgressModel, Cmd] {
       if (fm.id !== m.id || fm.tag !== m.tag) return [m, null]
       if (!IsAnimating(m)) return [m, null]
       const diff = m.targetPercent - m.percentShown
-      const newPercent = m.percentShown + diff * 0.3
-      const newVelocity = m.velocity * 0.3 + diff * 0.3
+      const freq = m.springFrequency
+      const damp = m.springDamping
+      const newPercent = m.percentShown + diff * freq * 0.01 + m.velocity * 0.01
+      const newVelocity = (m.velocity - diff * freq * damp * 0.01) * 0.99
       return [
         { ...m, percentShown: newPercent, velocity: newVelocity, tag: m.tag + 1 },
         frameCmd(m.id, m.tag + 1),

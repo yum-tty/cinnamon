@@ -259,24 +259,24 @@ export function Update(m: TableModel, msg: Msg): [TableModel, Cmd] {
 
   const key = msg as any
 
-  const next = { ...m, viewport: { ...m.viewport }, rows: [...m.rows], cols: [...m.cols] }
+  let next = { ...m, viewport: { ...m.viewport }, rows: [...m.rows], cols: [...m.cols] }
 
   if (Matches(next.KeyMap.LineUp, key)) {
-    MoveUp(next, 1)
+    next = MoveUp(next, 1)
   } else if (Matches(next.KeyMap.LineDown, key)) {
-    MoveDown(next, 1)
+    next = MoveDown(next, 1)
   } else if (Matches(next.KeyMap.PageUp, key)) {
-    MoveUp(next, VpHeight(next.viewport))
+    next = MoveUp(next, VpHeight(next.viewport))
   } else if (Matches(next.KeyMap.PageDown, key)) {
-    MoveDown(next, VpHeight(next.viewport))
+    next = MoveDown(next, VpHeight(next.viewport))
   } else if (Matches(next.KeyMap.HalfPageUp, key)) {
-    MoveUp(next, Math.floor(VpHeight(next.viewport) / 2))
+    next = MoveUp(next, Math.floor(VpHeight(next.viewport) / 2))
   } else if (Matches(next.KeyMap.HalfPageDown, key)) {
-    MoveDown(next, Math.floor(VpHeight(next.viewport) / 2))
+    next = MoveDown(next, Math.floor(VpHeight(next.viewport) / 2))
   } else if (Matches(next.KeyMap.GotoTop, key)) {
-    GotoTop(next)
+    next = GotoTop(next)
   } else if (Matches(next.KeyMap.GotoBottom, key)) {
-    GotoBottom(next)
+    next = GotoBottom(next)
   }
 
   return [next, null]
@@ -399,49 +399,53 @@ export function SetCursor(m: TableModel, n: number): void {
   UpdateViewport(m)
 }
 
-export function MoveUp(m: TableModel, n: number): void {
-  m.cursor = m.rows.length === 0 ? 0 : clamp(m.cursor - n, 0, m.rows.length - 1)
+export function MoveUp(m: TableModel, n: number): TableModel {
+  const r = { ...m, viewport: { ...m.viewport } }
+  r.cursor = r.rows.length === 0 ? 0 : clamp(r.cursor - n, 0, r.rows.length - 1)
 
-  let offset = m.viewport.yOffset
-  const vpH = VpHeight(m.viewport)
+  let offset = r.viewport.yOffset
+  const vpH = VpHeight(r.viewport)
 
-  if (m.start === 0) {
-    offset = clamp(offset, 0, m.cursor)
-  } else if (m.start < vpH) {
-    offset = clamp(clamp(offset + n, 0, m.cursor), 0, vpH)
+  if (r.start === 0) {
+    offset = clamp(offset, 0, r.cursor)
+  } else if (r.start < vpH) {
+    offset = clamp(clamp(offset + n, 0, r.cursor), 0, vpH)
   } else if (offset >= 1) {
     offset = clamp(offset + n, 1, vpH)
   }
 
-  m.viewport = { ...m.viewport, yOffset: offset }
-  UpdateViewport(m)
+  r.viewport = { ...r.viewport, yOffset: offset }
+  UpdateViewport(r)
+  return r
 }
 
-export function MoveDown(m: TableModel, n: number): void {
-  m.cursor = m.rows.length === 0 ? 0 : clamp(m.cursor + n, 0, m.rows.length - 1)
-  UpdateViewport(m)
+export function MoveDown(m: TableModel, n: number): TableModel {
+  const r = { ...m, viewport: { ...m.viewport } }
+  r.cursor = r.rows.length === 0 ? 0 : clamp(r.cursor + n, 0, r.rows.length - 1)
+  UpdateViewport(r)
 
-  let offset = m.viewport.yOffset
-  const vpH = VpHeight(m.viewport)
+  let offset = r.viewport.yOffset
+  const vpH = VpHeight(r.viewport)
 
-  if (m.end === m.rows.length && offset > 0) {
+  if (r.end === r.rows.length && offset > 0) {
     offset = clamp(offset - n, 1, vpH)
-  } else if (m.cursor > (m.end - m.start) / 2 && offset > 0) {
-    offset = clamp(offset - n, 1, m.cursor)
+  } else if (r.cursor > (r.end - r.start) / 2 && offset > 0) {
+    offset = clamp(offset - n, 1, r.cursor)
   } else if (offset > 1) {
-  } else if (m.cursor > offset + vpH - 1) {
+  } else if (r.cursor > offset + vpH - 1) {
     offset = clamp(offset + 1, 0, 1)
   }
 
-  m.viewport = { ...m.viewport, yOffset: offset }
+  r.viewport = { ...r.viewport, yOffset: offset }
+  return r
 }
 
-export function GotoTop(m: TableModel): void {
-  MoveUp(m, m.cursor)
+export function GotoTop(m: TableModel): TableModel {
+  return MoveUp(m, m.cursor)
 }
 
-export function GotoBottom(m: TableModel): void {
-  MoveDown(m, m.rows.length)
+export function GotoBottom(m: TableModel): TableModel {
+  return MoveDown(m, m.rows.length)
 }
 
 export function FromValues(m: TableModel, value: string, separator: string): void {
