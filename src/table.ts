@@ -318,6 +318,13 @@ export function HelpView(m: TableModel): string {
 }
 
 export function UpdateViewport(m: TableModel): void {
+  if (m.viewport.width === 0) {
+    const headerWidth = getStringWidth(headersView(m))
+    if (headerWidth > 0) {
+      m.viewport = VpSetWidth(m.viewport, headerWidth)
+    }
+  }
+
   const renderedRows: string[] = []
 
   const vpH = VpHeight(m.viewport)

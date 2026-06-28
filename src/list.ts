@@ -769,7 +769,17 @@ function statusView(m: ListModel): string {
 function paginationView(m: ListModel): string {
   const items = VisibleItems(m)
   if (items.length === 0) return ""
-  const perPage = Math.max(1, getContentHeight(m))
+  let h = m.height
+  if (m.showTitle || (m.showFilter && m.filteringEnabled)) {
+    h -= stringHeight(titleView(m))
+  }
+  if (m.showStatusBar) {
+    h -= stringHeight(statusView(m))
+  }
+  if (m.showHelp) {
+    h -= stringHeight(helpView(m))
+  }
+  const perPage = Math.max(1, Math.max(0, h))
   return m.styles.paginationStyle.render(`Page ${Math.floor(m.cursor / perPage) + 1}`)
 }
 
