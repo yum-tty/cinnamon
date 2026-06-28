@@ -505,7 +505,7 @@ function updateVirtualCursorStyle(m: TextInputModel): TextInputModel {
     return { ...m, virtualCursor: vc }
   }
   const style = m.styles.cursor
-  let vc = { ...m.virtualCursor, style: NewStyle().foreground(style.color || "#7").reverse(true) }
+  let vc = { ...m.virtualCursor, style: NewStyle().foreground(style.color || "#7") }
   if (style.blink) {
     if (style.blinkSpeed > 0) {
       vc = { ...vc, blinkSpeed: style.blinkSpeed }
@@ -657,7 +657,7 @@ export function View(m: TextInputModel): string {
   if (pos < value.length) {
     const char = echoTransform(m, value[pos] || " ")
     let vc = SetChar(m.virtualCursor, char)
-    vc = { ...vc, style: m.styles.cursor.color ? NewStyle().foreground(m.styles.cursor.color).reverse(true) : NewStyle().reverse(true) }
+    vc = { ...vc, style: m.styles.cursor.color ? NewStyle().foreground(m.styles.cursor.color) : NewStyle() }
     v += CursorView(vc)
     v += styleText(echoTransform(m, value.slice(pos + 1)))
     v += completionView(m, 0)

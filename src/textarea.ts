@@ -500,7 +500,7 @@ export function ScrollPercent(m: TextareaModel): number {
 export function setCursorLineRelative(m: TextareaModel, delta: number): TextareaModel {
   if (delta === 0) return m
 
-  const li = LineInfo_fn(m)
+  let li = LineInfo_fn(m)
   let charOffset = Math.max(m.lastCharOffset, li.charOffset)
   m.lastCharOffset = charOffset
 
@@ -510,20 +510,21 @@ export function setCursorLineRelative(m: TextareaModel, delta: number): Textarea
     for (let i = 0; i < delta; i++) {
       if (li.rowOffset + 1 >= li.height && m.row < m.value.length - 1) {
         m.row++
-        m.col = Math.min(m.col, m.value[m.row]!.length)
-      } else if (m.value[m.row]!.length > 0) {
+        m.col = 0
+      } else {
         m.col = Math.min(li.startColumn + li.width + trailingSpace, m.value[m.row]!.length - 1)
       }
+      li = LineInfo_fn(m)
     }
   } else {
     for (let i = 0; i < -delta; i++) {
-      const curLi = LineInfo_fn(m)
-      if (curLi.rowOffset <= 0 && m.row > 0) {
+      if (li.rowOffset <= 0 && m.row > 0) {
         m.row--
-        m.col = Math.min(m.col, m.value[m.row]!.length)
-      } else if (m.value[m.row]!.length > 0) {
-        m.col = curLi.startColumn - trailingSpace
+        m.col = m.value[m.row]!.length
+      } else {
+        m.col = li.startColumn - trailingSpace
       }
+      li = LineInfo_fn(m)
     }
   }
 
