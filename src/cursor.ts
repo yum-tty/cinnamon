@@ -202,8 +202,5 @@ export function View(m: CursorModel): string {
   if (m.isBlinked) {
     return m.textStyle.inline(true).render(m.char)
   }
-  if (m.char === " ") {
-    return m.style.inline(true).render(m.char)
-  }
   return m.style.inline(true).reverse(true).render(m.char)
 }
