@@ -837,7 +837,7 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
     return [{ ...m, filterInput: newFilterInput }, inputCmd]
   }
 
-  if (Matches(m.keyMap.ClearFilter as any, key)) {
+  if (m.filterState === "filtered" && Matches(m.keyMap.ClearFilter as any, key)) {
     return [ResetFilter(m), null]
   }
   if (Matches(m.keyMap.Quit as any, key)) {
