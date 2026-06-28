@@ -259,6 +259,14 @@ export interface TextareaModel {
 
 export function New(): TextareaModel {
   const vp = Viewport(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+  vp.keyMap.PageDown.Unbind()
+  vp.keyMap.PageUp.Unbind()
+  vp.keyMap.HalfPageDown.Unbind()
+  vp.keyMap.HalfPageUp.Unbind()
+  vp.keyMap.Up.Unbind()
+  vp.keyMap.Down.Unbind()
+  vp.keyMap.Left.Unbind()
+  vp.keyMap.Right.Unbind()
   const cur = Cursor()
   const styles = DefaultDarkStyles()
 

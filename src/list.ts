@@ -831,10 +831,13 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
       return [ResetFilter(m), null]
     }
     if (Matches(m.keyMap.AcceptWhileFiltering as any, key)) {
+      if (TextInputValue(m.filterInput) === "") {
+        return [ResetFilter(m), null]
+      }
       const blurredInput = TextInputBlur(m.filterInput)
       if (m.filteredItems.length === 0) {
         const resetInput = TextInputReset(blurredInput)
-        return [{ ...m, filterState: "unfiltered", filterInput: resetInput, cursor: 0, offset: 0 }, null]
+        return [{ ...m, filterState: "unfiltered", filterInput: resetInput, filteredItems: m.items, cursor: 0, offset: 0 }, null]
       }
       const newCursor = Math.min(m.cursor, m.filteredItems.length - 1)
       return [{ ...m, filterState: "filtered", filterInput: blurredInput, cursor: newCursor, offset: 0 }, null]
@@ -847,7 +850,8 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
       const ranks = m.filter(newValue, targets)
       const filteredItems = ranks.map((r) => m.items[r.index]!)
       const newCursor = Math.min(m.cursor, Math.max(0, filteredItems.length - 1))
-      const newOffset = Math.min(m.offset, newCursor)
+      const ch = getContentHeight(m)
+      const newOffset = filteredItems.length <= ch ? 0 : Math.min(m.offset, newCursor)
       return [{ ...m, filterInput: newFilterInput, filteredItems, cursor: newCursor, offset: newOffset }, inputCmd]
     }
     return [{ ...m, filterInput: newFilterInput }, inputCmd]
