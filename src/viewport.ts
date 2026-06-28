@@ -125,6 +125,22 @@ export function SetHorizontalStep(m: ViewportModel, n: number): ViewportModel {
   return { ...m, horizontalStep: Math.max(0, n) }
 }
 
+export function GetFillHeight(m: ViewportModel): boolean {
+  return m.fillHeight
+}
+
+export function SetFillHeight(m: ViewportModel, v: boolean): ViewportModel {
+  return { ...m, fillHeight: v }
+}
+
+export function GetLeftGutterFunc(m: ViewportModel): GutterFunc {
+  return m.leftGutterFunc
+}
+
+export function SetLeftGutterFunc(m: ViewportModel, fn: GutterFunc): ViewportModel {
+  return { ...m, leftGutterFunc: fn }
+}
+
 export function HorizontalScrollPercent(m: ViewportModel): number {
   const lw = m.longestLineWidth
   if (m.xOffset >= lw - m.width) return 1

@@ -240,6 +240,14 @@ export function readDir(m: FilePickerModel, dirPath: string, showHidden: boolean
   }
 }
 
+export function Cursor(m: FilePickerModel): string {
+  return m.cursor
+}
+
+export function SetCursor(m: FilePickerModel, v: string): FilePickerModel {
+  return { ...m, cursor: v }
+}
+
 export function Init(m: FilePickerModel): Cmd {
   return readDir(m, m.currentDirectory, m.showHidden)
 }

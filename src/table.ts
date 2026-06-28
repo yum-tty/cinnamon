@@ -1,6 +1,7 @@
 import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { Style } from "caramel"
+import { Style, getStringWidth } from "caramel"
 import { Height as StrHeight, JoinHorizontal, JoinVertical, Truncate } from "caramel"
+import { type BorderStyle } from "caramel"
 import { type Binding, NewBinding, Matches, type KeyMap, type Help as BindingHelp } from "./key"
 import {
   type HelpModel,
@@ -89,6 +90,11 @@ export interface TableModel {
   start: number
   end: number
   styleFunc: StyleFunc | null
+  borderHeader: boolean
+  borderColumn: boolean
+  borderRow: boolean
+  border: BorderStyle | null
+  borderStyle: Style
 }
 
 export type Option = (m: TableModel) => void
@@ -106,6 +112,11 @@ export function New(...opts: Option[]): TableModel {
     start: 0,
     end: 0,
     styleFunc: null,
+    borderHeader: false,
+    borderColumn: false,
+    borderRow: false,
+    border: null,
+    borderStyle: new Style(),
   }
 
   for (const opt of opts) {
@@ -164,6 +175,77 @@ export function WithStyleFunc(fn: StyleFunc): Option {
   }
 }
 
+export function WithBorderHeader(v: boolean): Option {
+  return (m) => {
+    m.borderHeader = v
+  }
+}
+
+export function WithBorderColumn(v: boolean): Option {
+  return (m) => {
+    m.borderColumn = v
+  }
+}
+
+export function WithBorderRow(v: boolean): Option {
+  return (m) => {
+    m.borderRow = v
+  }
+}
+
+export function WithBorderStyle(s: Style): Option {
+  return (m) => {
+    m.borderStyle = s
+  }
+}
+
+export function WithBorder(b: BorderStyle | null): Option {
+  return (m) => {
+    m.border = b
+  }
+}
+
+export function GetBorderHeader(m: TableModel): boolean {
+  return m.borderHeader
+}
+
+export function SetBorderHeader(m: TableModel, v: boolean): void {
+  m.borderHeader = v
+  UpdateViewport(m)
+}
+
+export function GetBorderColumn(m: TableModel): boolean {
+  return m.borderColumn
+}
+
+export function SetBorderColumn(m: TableModel, v: boolean): void {
+  m.borderColumn = v
+  UpdateViewport(m)
+}
+
+export function GetBorderRow(m: TableModel): boolean {
+  return m.borderRow
+}
+
+export function SetBorderRow(m: TableModel, v: boolean): void {
+  m.borderRow = v
+  UpdateViewport(m)
+}
+
+export function SetBorderStyle(m: TableModel, s: Style): void {
+  m.borderStyle = s
+  UpdateViewport(m)
+}
+
+export function GetBorder(m: TableModel): BorderStyle | null {
+  return m.border
+}
+
+export function SetBorder(m: TableModel, b: BorderStyle | null): void {
+  m.border = b
+  UpdateViewport(m)
+}
+
 export function SetStyleFunc(m: TableModel, fn: StyleFunc | null): void {
   m.styleFunc = fn
   UpdateViewport(m)
@@ -213,7 +295,16 @@ export function Blur(m: TableModel): void {
 }
 
 export function View(m: TableModel): string {
-  return headersView(m) + "\n" + ViewportView(m.viewport)
+  const header = headersView(m)
+  const headerWidth = getStringWidth(header)
+  let result = header
+
+  if (m.borderHeader && m.border) {
+    result += "\n" + constructHorizontalBorder(m, headerWidth)
+  }
+
+  result += "\n" + ViewportView(m.viewport)
+  return result
 }
 
 export function HelpView(m: TableModel): string {
@@ -238,6 +329,9 @@ export function UpdateViewport(m: TableModel): void {
 
   for (let i = m.start; i < m.end; i++) {
     renderedRows.push(renderRow(m, i))
+    if (m.borderRow && m.border && i < m.end - 1) {
+      renderedRows.push(constructRowSeparator(m))
+    }
   }
 
   m.viewport = SetContent(m.viewport, JoinVertical(0, ...renderedRows))
@@ -363,6 +457,19 @@ function headersView(m: TableModel): string {
     const renderedCell = s.render(Truncate(col.Title, col.Width, "\u2026"))
     cells.push(m.styles.Header.render(renderedCell))
   }
+
+  if (m.borderColumn && cells.length > 1 && m.border) {
+    const sep = m.borderStyle.render(m.border.middle || m.border.right)
+    const bordered: string[] = []
+    for (let i = 0; i < cells.length; i++) {
+      bordered.push(cells[i]!)
+      if (i < cells.length - 1) {
+        bordered.push(sep)
+      }
+    }
+    return JoinHorizontal(0, ...bordered)
+  }
+
   return JoinHorizontal(0, ...cells)
 }
 
@@ -378,13 +485,75 @@ function renderRow(m: TableModel, r: number): string {
     cells.push(renderedCell)
   }
 
-  const row = JoinHorizontal(0, ...cells)
+  let row: string
+  if (m.borderColumn && cells.length > 1 && m.border) {
+    const sep = m.borderStyle.render(m.border.middle || m.border.right)
+    const bordered: string[] = []
+    for (let i = 0; i < cells.length; i++) {
+      bordered.push(cells[i]!)
+      if (i < cells.length - 1) {
+        bordered.push(sep)
+      }
+    }
+    row = JoinHorizontal(0, ...bordered)
+  } else {
+    row = JoinHorizontal(0, ...cells)
+  }
 
   if (r === m.cursor) {
     return m.styles.Selected.render(row)
   }
 
   return row
+}
+
+function constructHorizontalBorder(m: TableModel, width: number): string {
+  if (!m.border) return ""
+
+  const parts: string[] = []
+  if (m.borderColumn) {
+    const totalWidth = m.cols.reduce((sum, c) => sum + (c.Width > 0 ? c.Width : 0), 0)
+    const colCount = m.cols.filter(c => c.Width > 0).length
+
+    parts.push(m.borderStyle.render(m.border.middleLeft || m.border.topLeft))
+    for (let i = 0; i < m.cols.length; i++) {
+      const col = m.cols[i]!
+      if (col.Width <= 0) continue
+      parts.push(m.borderStyle.render(m.border.top.repeat(col.Width)))
+      parts.push(m.borderStyle.render(m.border.middle || m.border.top))
+    }
+    parts.push(m.borderStyle.render(m.border.middleRight || m.border.topRight))
+  } else {
+    parts.push(m.borderStyle.render(m.border.topLeft))
+    const totalWidth = m.cols.reduce((sum, c) => sum + (c.Width > 0 ? c.Width : 0), 0)
+    parts.push(m.borderStyle.render(m.border.top.repeat(totalWidth)))
+    parts.push(m.borderStyle.render(m.border.topRight))
+  }
+
+  return parts.join("")
+}
+
+function constructRowSeparator(m: TableModel): string {
+  if (!m.border) return ""
+
+  const parts: string[] = []
+  if (m.borderColumn) {
+    parts.push(m.borderStyle.render(m.border.middleLeft || m.border.left))
+    for (let i = 0; i < m.cols.length; i++) {
+      const col = m.cols[i]!
+      if (col.Width <= 0) continue
+      parts.push(m.borderStyle.render(m.border.bottom.repeat(col.Width)))
+      parts.push(m.borderStyle.render(m.border.middle || m.border.left))
+    }
+    parts.push(m.borderStyle.render(m.border.middleRight || m.border.right))
+  } else {
+    parts.push(m.borderStyle.render(m.border.bottomLeft))
+    const totalWidth = m.cols.reduce((sum, c) => sum + (c.Width > 0 ? c.Width : 0), 0)
+    parts.push(m.borderStyle.render(m.border.bottom.repeat(totalWidth)))
+    parts.push(m.borderStyle.render(m.border.bottomRight))
+  }
+
+  return parts.join("")
 }
 
 function clamp(v: number, low: number, high: number): number {
