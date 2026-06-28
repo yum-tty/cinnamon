@@ -317,6 +317,7 @@ export interface ListModel {
   spinner: SpinnerModel
   showSpinner: boolean
   styles: Styles
+  filter: FilterFunc
 }
 
 /**
@@ -364,6 +365,7 @@ export function List(
     spinner: sp,
     showSpinner: false,
     styles,
+    filter: DefaultFilter,
   }
 }
 
@@ -475,7 +477,7 @@ export function DisableQuitKeybindings(m: ListModel): ListModel {
  */
 export function SetFilterText(m: ListModel, filter: string): ListModel {
   const targets = m.items.map((item) => item.filterValue())
-  const ranks = DefaultFilter(filter, targets)
+  const ranks = m.filter(filter, targets)
   const filteredItems = ranks.map((r) => m.items[r.index]!)
   let filterInput = TextInputSetValue(m.filterInput, filter)
   filterInput = TextInputCursorEnd(filterInput)
@@ -628,6 +630,13 @@ export function IsFiltered(m: ListModel): boolean {
  */
 export function SetFilteringEnabled(m: ListModel, enabled: boolean): ListModel {
   return { ...m, filteringEnabled: enabled }
+}
+
+/**
+ * SetFilterFunc sets a custom filter function.
+ */
+export function SetFilterFunc(m: ListModel, fn: FilterFunc): ListModel {
+  return { ...m, filter: fn }
 }
 
 /**
@@ -820,7 +829,7 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
     const oldValue = TextInputValue(m.filterInput)
     if (newValue !== oldValue) {
       const targets = m.items.map((item) => item.filterValue())
-      const ranks = DefaultFilter(newValue, targets)
+      const ranks = m.filter(newValue, targets)
       const filteredItems = ranks.map((r) => m.items[r.index]!)
       const newCursor = Math.min(m.cursor, Math.max(0, filteredItems.length - 1))
       return [{ ...m, filterInput: newFilterInput, filteredItems, cursor: newCursor }, inputCmd]
