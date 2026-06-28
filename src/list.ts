@@ -714,6 +714,8 @@ export function ResetFilter(m: ListModel): ListModel {
     filterState: "unfiltered",
     filterInput: resetFilterInput,
     filteredItems: m.items,
+    cursor: 0,
+    offset: 0,
   }
 }
 
@@ -812,8 +814,7 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
 
   if (m.filterState === "filtering") {
     if (Matches(m.keyMap.CancelWhileFiltering as any, key)) {
-      const resetFilterInput = TextInputReset(m.filterInput)
-      return [{ ...m, filterState: "unfiltered", filterInput: resetFilterInput }, null]
+      return [ResetFilter(m), null]
     }
     if (Matches(m.keyMap.AcceptWhileFiltering as any, key)) {
       const blurredInput = TextInputBlur(m.filterInput)
