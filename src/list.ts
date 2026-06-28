@@ -877,7 +877,7 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
   }
   if (Matches(m.keyMap.Filter as any, key) && m.filteringEnabled) {
     if (m.filterState === "filtered") {
-      const resetFilterInput = TextInputReset(TextinputNew())
+      const resetFilterInput = TextInputReset(m.filterInput)
       const [focusedInput] = TextInputFocus(resetFilterInput)
       return [{ ...m, filterState: "filtering", filterInput: focusedInput, filteredItems: m.items, cursor: 0, offset: 0 }, null]
     }
