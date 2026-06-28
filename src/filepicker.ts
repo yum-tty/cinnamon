@@ -166,7 +166,7 @@ export function New(): FilePickerModel {
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0B"
+  if (isNaN(bytes) || !isFinite(bytes) || bytes === 0) return "0B"
   const units = ["B", "kB", "MB", "GB", "TB", "PB"]
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
   const val = bytes / Math.pow(1024, i)

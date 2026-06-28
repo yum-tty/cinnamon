@@ -363,9 +363,7 @@ export function Columns(m: TableModel): Column[] {
 
 export function SetRows(m: TableModel, rows: Row[]): void {
   m.rows = rows
-  if (m.cursor > m.rows.length - 1) {
-    m.cursor = m.rows.length - 1
-  }
+  m.cursor = m.rows.length === 0 ? 0 : Math.min(m.cursor, m.rows.length - 1)
   UpdateViewport(m)
 }
 

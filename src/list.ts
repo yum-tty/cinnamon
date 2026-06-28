@@ -384,7 +384,7 @@ export function SetItems(m: ListModel, items: Item[]): ListModel {
  * Select selects the given index of the list.
  */
 export function Select(m: ListModel, index: number): ListModel {
-  const perPage = Math.max(1, Math.floor((m.height - 2) / (m.delegate.Height() + m.delegate.Spacing())))
+  const perPage = Math.max(1, Math.floor((m.height - 2) / Math.max(1, m.delegate.Height() + m.delegate.Spacing())))
   return {
     ...m,
     cursor: index % perPage,

@@ -291,6 +291,7 @@ function nextSuggestion(m: TextInputModel): TextInputModel {
 }
 
 function previousSuggestion(m: TextInputModel): TextInputModel {
+  if (m.matchedSuggestions.length === 0) return m
   let idx = m.currentSuggestionIndex - 1
   if (idx < 0) idx = m.matchedSuggestions.length - 1
   return { ...m, currentSuggestionIndex: idx }

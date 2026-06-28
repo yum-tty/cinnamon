@@ -1320,7 +1320,10 @@ export function Update(m: TextareaModel, msg: Msg): [TextareaModel, Cmd] {
   }
 
   if (msg.type === "paste") {
-    m = insertRunesFromUserInput(m, [...(msg as any).content])
+    const content = (msg as any).content ?? ""
+    if (content) {
+      m = insertRunesFromUserInput(m, [...content])
+    }
   } else if (msg.type === "pasteErrMsg") {
     m.err = (msg as any).error
   } else if (msg.type === "key") {
