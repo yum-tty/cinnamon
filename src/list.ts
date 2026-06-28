@@ -403,6 +403,7 @@ export function ResetSelected(m: ListModel): ListModel {
  * SetItem replaces an item at the given index.
  */
 export function SetItem(m: ListModel, index: number, item: Item): ListModel {
+  if (index < 0 || index >= m.items.length) return m
   const newItems = [...m.items]
   newItems[index] = item
   return { ...m, items: newItems }
@@ -575,7 +576,7 @@ export function GoToStart(m: ListModel): ListModel {
  */
 export function GoToEnd(m: ListModel): ListModel {
   const items = VisibleItems(m)
-  return { ...m, cursor: items.length - 1 }
+  return { ...m, cursor: Math.max(0, items.length - 1) }
 }
 
 /**

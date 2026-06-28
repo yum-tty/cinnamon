@@ -740,7 +740,10 @@ function characterLeft(m: TextareaModel, insideLine: boolean): TextareaModel {
 function wordLeft(m: TextareaModel): TextareaModel {
   // eslint-disable-next-line no-constant-condition
   while (true) {
+    const prevRow = m.row
+    const prevCol = m.col
     m = characterLeft(m, true)
+    if (m.row === prevRow && m.col === prevCol) break
     if (m.col < m.value[m.row]!.length && !isSpace(m.value[m.row]!.charAt(m.col))) break
   }
 

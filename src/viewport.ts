@@ -467,6 +467,7 @@ function visibleLines(m: ViewportModel): string[] {
 }
 
 function softWrap(lines: string[], maxW: number, maxH: number, ridx: number, voffset: number, gutterFunc?: GutterFunc): string[] {
+  if (maxW <= 0) return lines
   const wrapped: string[] = []
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!

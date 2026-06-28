@@ -11,6 +11,8 @@ function nextID(): number {
   return ++lastID
 }
 
+const blinkTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
 /**
  * CursorMode describes the behavior of the cursor.
  */
@@ -94,8 +96,10 @@ export function SetMode(m: CursorModel, mode: CursorMode): [CursorModel, Cmd] {
 
 function cancelBlink(m: CursorModel): CursorModel {
   if (!m) return Cursor()
-  if (m.blinkTimer != null) {
-    clearTimeout(m.blinkTimer)
+  const timer = blinkTimers.get(m.id)
+  if (timer != null) {
+    clearTimeout(timer)
+    blinkTimers.delete(m.id)
     return { ...m, blinkTimer: null }
   }
   return m
@@ -175,9 +179,10 @@ export function BlinkCmd(m: CursorModel): Cmd {
   return () => {
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
+        blinkTimers.delete(id)
         resolve({ type: "blink", id, tag } as BlinkMsg)
       }, speed)
-      // Store timer for cancellation
+      blinkTimers.set(id, timer)
       return timer
     })
   }

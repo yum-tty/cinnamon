@@ -259,25 +259,27 @@ export function Update(m: TableModel, msg: Msg): [TableModel, Cmd] {
 
   const key = msg as any
 
-  if (Matches(m.KeyMap.LineUp, key)) {
-    MoveUp(m, 1)
-  } else if (Matches(m.KeyMap.LineDown, key)) {
-    MoveDown(m, 1)
-  } else if (Matches(m.KeyMap.PageUp, key)) {
-    MoveUp(m, VpHeight(m.viewport))
-  } else if (Matches(m.KeyMap.PageDown, key)) {
-    MoveDown(m, VpHeight(m.viewport))
-  } else if (Matches(m.KeyMap.HalfPageUp, key)) {
-    MoveUp(m, Math.floor(VpHeight(m.viewport) / 2))
-  } else if (Matches(m.KeyMap.HalfPageDown, key)) {
-    MoveDown(m, Math.floor(VpHeight(m.viewport) / 2))
-  } else if (Matches(m.KeyMap.GotoTop, key)) {
-    GotoTop(m)
-  } else if (Matches(m.KeyMap.GotoBottom, key)) {
-    GotoBottom(m)
+  const next = { ...m, viewport: { ...m.viewport }, rows: [...m.rows], cols: [...m.cols] }
+
+  if (Matches(next.KeyMap.LineUp, key)) {
+    MoveUp(next, 1)
+  } else if (Matches(next.KeyMap.LineDown, key)) {
+    MoveDown(next, 1)
+  } else if (Matches(next.KeyMap.PageUp, key)) {
+    MoveUp(next, VpHeight(next.viewport))
+  } else if (Matches(next.KeyMap.PageDown, key)) {
+    MoveDown(next, VpHeight(next.viewport))
+  } else if (Matches(next.KeyMap.HalfPageUp, key)) {
+    MoveUp(next, Math.floor(VpHeight(next.viewport) / 2))
+  } else if (Matches(next.KeyMap.HalfPageDown, key)) {
+    MoveDown(next, Math.floor(VpHeight(next.viewport) / 2))
+  } else if (Matches(next.KeyMap.GotoTop, key)) {
+    GotoTop(next)
+  } else if (Matches(next.KeyMap.GotoBottom, key)) {
+    GotoBottom(next)
   }
 
-  return [m, null]
+  return [next, null]
 }
 
 export function Focused(m: TableModel): boolean {
@@ -388,12 +390,12 @@ export function Cursor(m: TableModel): number {
 }
 
 export function SetCursor(m: TableModel, n: number): void {
-  m.cursor = clamp(n, 0, m.rows.length - 1)
+  m.cursor = m.rows.length === 0 ? 0 : clamp(n, 0, m.rows.length - 1)
   UpdateViewport(m)
 }
 
 export function MoveUp(m: TableModel, n: number): void {
-  m.cursor = clamp(m.cursor - n, 0, m.rows.length - 1)
+  m.cursor = m.rows.length === 0 ? 0 : clamp(m.cursor - n, 0, m.rows.length - 1)
 
   let offset = m.viewport.yOffset
   const vpH = VpHeight(m.viewport)
@@ -411,7 +413,7 @@ export function MoveUp(m: TableModel, n: number): void {
 }
 
 export function MoveDown(m: TableModel, n: number): void {
-  m.cursor = clamp(m.cursor + n, 0, m.rows.length - 1)
+  m.cursor = m.rows.length === 0 ? 0 : clamp(m.cursor + n, 0, m.rows.length - 1)
   UpdateViewport(m)
 
   let offset = m.viewport.yOffset

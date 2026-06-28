@@ -133,7 +133,12 @@ export function GetHelpBinding(b: Binding): Help {
  */
 export function Matches(b: Binding, msg: KeyMsg): boolean {
   if (!b.Enabled()) return false
-  const keyStr = msg.ctrl ? `ctrl+${msg.name}` : msg.name
+  const parts: string[] = []
+  if (msg.ctrl) parts.push("ctrl")
+  if (msg.alt) parts.push("alt")
+  if (msg.meta) parts.push("meta")
+  parts.push(msg.name)
+  const keyStr = parts.join("+")
   for (const v of b.Keys()) {
     if (keyStr === v || msg.name === v) return true
   }

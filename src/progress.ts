@@ -214,7 +214,7 @@ function barView(m: ProgressModel, percent: number, textWidth: number): string {
 
   if (m.colorFunc) {
     for (let i = 0; i < fw; i++) {
-      const current = i / tw
+      const current = tw > 0 ? i / tw : 0
       let style = NewStyle().foreground(m.colorFunc(percent, current))
       if (isHalfBlock) {
         style = style.background(m.colorFunc(percent, Math.min(current + 0.5 / tw, 1)))
