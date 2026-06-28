@@ -482,7 +482,7 @@ export function SetFilterText(m: ListModel, filter: string): ListModel {
   const filteredItems = ranks.map((r) => m.items[r.index]!)
   let filterInput = TextInputSetValue(m.filterInput, filter)
   filterInput = TextInputCursorEnd(filterInput)
-  return { ...m, filterState: "filtered", filterInput, filteredItems }
+  return { ...m, filterState: "filtered", filterInput, filteredItems, cursor: 0, offset: 0 }
 }
 
 /**
@@ -821,10 +821,10 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
       const blurredInput = TextInputBlur(m.filterInput)
       if (m.filteredItems.length === 0) {
         const resetInput = TextInputReset(blurredInput)
-        return [{ ...m, filterState: "unfiltered", filterInput: resetInput, cursor: 0 }, null]
+        return [{ ...m, filterState: "unfiltered", filterInput: resetInput, cursor: 0, offset: 0 }, null]
       }
       const newCursor = Math.min(m.cursor, m.filteredItems.length - 1)
-      return [{ ...m, filterState: "filtered", filterInput: blurredInput, cursor: newCursor }, null]
+      return [{ ...m, filterState: "filtered", filterInput: blurredInput, cursor: newCursor, offset: 0 }, null]
     }
     const [newFilterInput, inputCmd] = TextInputUpdate(m.filterInput, msg)
     const newValue = TextInputValue(newFilterInput)
@@ -834,7 +834,8 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
       const ranks = m.filter(newValue, targets)
       const filteredItems = ranks.map((r) => m.items[r.index]!)
       const newCursor = Math.min(m.cursor, Math.max(0, filteredItems.length - 1))
-      return [{ ...m, filterInput: newFilterInput, filteredItems, cursor: newCursor }, inputCmd]
+      const newOffset = Math.min(m.offset, newCursor)
+      return [{ ...m, filterInput: newFilterInput, filteredItems, cursor: newCursor, offset: newOffset }, inputCmd]
     }
     return [{ ...m, filterInput: newFilterInput }, inputCmd]
   }
@@ -884,8 +885,7 @@ function getContentHeight(m: ListModel): number {
     h -= stringHeight(statusView(m))
   }
   if (m.showPagination) {
-    const items = VisibleItems(m)
-    if (items.length > 0) h -= 1
+    h -= stringHeight(paginationView(m))
   }
   if (m.showHelp) {
     h -= stringHeight(helpView(m))
