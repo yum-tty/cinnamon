@@ -272,6 +272,9 @@ function pushView(m: FilePickerModel, selected: number, minimum: number, maximum
 }
 
 function popView(m: FilePickerModel): { model: FilePickerModel; selected: number; minIdx: number; maxIdx: number } {
+  if (m.selectedStack.length() === 0) {
+    return { model: m, selected: m.selected, minIdx: m.minIdx, maxIdx: m.maxIdx }
+  }
   const selected = m.selectedStack.pop()
   const minIdx = m.minStack.pop()
   const maxIdx = m.maxStack.pop()

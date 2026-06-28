@@ -26,7 +26,7 @@ import {
   Update as ViewportUpdate,
   View as ViewportView,
 } from "./viewport"
-import { ReadClipboard } from "cinnamon-bun"
+import { ReadClipboard, Batch } from "cinnamon-bun"
 
 function getStringWidth(str: string): number {
   let width = 0
@@ -512,7 +512,7 @@ export function setCursorLineRelative(m: TextareaModel, delta: number): Textarea
         m.row++
         m.col = 0
       } else {
-        m.col = Math.min(li.startColumn + li.width + trailingSpace, m.value[m.row]!.length - 1)
+        m.col = Math.min(li.startColumn + li.width + trailingSpace, Math.max(0, m.value[m.row]!.length - 1))
       }
       li = LineInfo_fn(m)
     }
@@ -1445,7 +1445,7 @@ export function Update(m: TextareaModel, msg: Msg): [TextareaModel, Cmd] {
 
   m = repositionView(m)
 
-  const batchCmd = cmds.length > 0 ? cmds[cmds.length - 1] : null
+  const batchCmd = cmds.length > 0 ? Batch(...cmds) : null
   return [m, batchCmd]
 }
 

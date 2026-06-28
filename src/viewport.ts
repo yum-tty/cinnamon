@@ -491,7 +491,8 @@ function softWrap(lines: string[], maxW: number, maxH: number, ridx: number, vof
       idx += maxW
     }
   }
-  return wrapped.slice(voffset, voffset + maxH)
+  const clampedOffset = Math.min(voffset, Math.max(0, wrapped.length - 1))
+  return wrapped.slice(clampedOffset, clampedOffset + maxH)
 }
 
 function truncateStr(str: string, start: number, end: number): string {
