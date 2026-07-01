@@ -989,6 +989,14 @@ function helpView(m: ListModel): string {
  * Update handles keyboard input.
  */
 export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
+  if (Array.isArray(msg) && msg.length > 0 && typeof msg[0] === "object" && "item" in msg[0]!) {
+    const matches = msg as FilterMatchItem[]
+    const filteredItems = matches.map((m) => m.item)
+    const filteredMatches = matches.map((m) => m.matches)
+    const newCursor = Math.min(m.cursor, Math.max(0, filteredItems.length - 1))
+    return [{ ...m, filteredItems, filteredMatches, cursor: newCursor }, null]
+  }
+
   if (!msg || !("type" in msg)) return [m, null]
 
   if (msg.type === "spinnerTick") {
@@ -999,14 +1007,6 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
 
   if (msg.type === "statusMessageTimeout") {
     return [{ ...m, statusMessage: "" }, null]
-  }
-
-  if (Array.isArray(msg) && msg.length > 0 && typeof msg[0] === "object" && "item" in msg[0]!) {
-    const matches = msg as FilterMatchItem[]
-    const filteredItems = matches.map((m) => m.item)
-    const filteredMatches = matches.map((m) => m.matches)
-    const newCursor = Math.min(m.cursor, Math.max(0, filteredItems.length - 1))
-    return [{ ...m, filteredItems, filteredMatches, cursor: newCursor }, null]
   }
 
   if (msg.type !== "key") return [m, null]
