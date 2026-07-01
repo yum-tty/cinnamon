@@ -567,9 +567,10 @@ function truncateStr(str: string, start: number, end: number): string {
   let si = 0
   let ei = str.length
   for (let i = 0; i < str.length; i++) {
+    const charWidth = getStringWidth(str[i]!)
     if (w >= start && si === 0) si = i
-    if (w >= end) { ei = i; break }
-    w++
+    if (w + charWidth > end) { ei = i; break }
+    w += charWidth
   }
   return w < start ? "" : str.slice(si, ei)
 }

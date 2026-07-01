@@ -45,6 +45,9 @@ export interface ItemDelegate {
  * DefaultDelegate renders items with title and description.
  */
 export class DefaultDelegate implements ItemDelegate {
+  showDescription: boolean = true
+  private height: number = 2
+  private spacing: number = 1
   private styles: {
     normal: Style
     selected: Style
@@ -63,8 +66,9 @@ export class DefaultDelegate implements ItemDelegate {
     }
   }
 
-  Height(): number { return 1 }
-  Spacing(): number { return 0 }
+  Height(): number { return this.showDescription ? this.height : 1 }
+  Spacing(): number { return this.spacing }
+  ShortHelp(): Binding[] { return [] }
 
   Render(w: (s: string) => void, m: ListModel, index: number, item: Item): void {
     const isSelected = index === m.cursor
@@ -941,12 +945,29 @@ function paginationView(m: ListModel): string {
 }
 
 function helpView(m: ListModel): string {
-  const bindings = [
+  const bindings: Binding[] = [
     m.keyMap.CursorUp,
     m.keyMap.CursorDown,
-    m.keyMap.Filter,
-    m.keyMap.Quit,
   ]
+
+  const filtering = m.filterState === "filtering"
+
+  if (!filtering && typeof (m.delegate as any).ShortHelp === "function") {
+    const delegateHelp = (m.delegate as any).ShortHelp() as Binding[]
+    if (delegateHelp && delegateHelp.length > 0) {
+      bindings.push(...delegateHelp)
+    }
+  }
+
+  bindings.push(
+    m.keyMap.Filter,
+    m.keyMap.ClearFilter,
+    m.keyMap.AcceptWhileFiltering,
+    m.keyMap.CancelWhileFiltering,
+  )
+
+  bindings.push(m.keyMap.Quit)
+
   const helpParts = bindings
     .filter((b) => b.Enabled())
     .map((b) => {

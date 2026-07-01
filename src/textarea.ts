@@ -243,6 +243,7 @@ export interface TextareaModel {
   softWrap: boolean
   minHeight: number
   maxContentHeight: number
+  prevMaxHeight: number
   styles: TextareaStyles
   useVirtualCursor: boolean
   promptFunc: ((info: PromptInfo) => string) | null
@@ -287,6 +288,7 @@ export function New(): TextareaModel {
     softWrap: true,
     minHeight: 0,
     maxContentHeight: 0,
+    prevMaxHeight: DEFAULT_MAX_HEIGHT,
     styles,
     promptFunc: null,
     promptWidth: 0,
@@ -343,7 +345,7 @@ function updateVirtualCursorStyle(m: TextareaModel): void {
     return
   }
   const color = m.styles.cursor.color
-  m.virtualCursor.style = NewStyle().foreground(color).reverse(true)
+  m.virtualCursor.style = NewStyle().foreground(color)
 
   if (m.styles.cursor.blink) {
     if (m.styles.cursor.blinkSpeed > 0) {
@@ -1322,8 +1324,9 @@ export function Update(m: TextareaModel, msg: Msg): [TextareaModel, Cmd] {
     m.value[m.row] = ""
   }
 
-  if (m.maxHeight > 0) {
+  if (m.maxHeight > 0 && m.maxHeight !== m.prevMaxHeight) {
     m.cache = new Map()
+    m.prevMaxHeight = m.maxHeight
   }
 
   if (msg.type === "paste") {
