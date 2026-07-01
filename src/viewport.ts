@@ -574,7 +574,7 @@ function truncateStr(str: string, start: number, end: number): string {
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i]!
-    const segWidth = Bun.stringWidth(seg.segment)
+    const segWidth = getStringWidth(seg.segment)
 
     if (si === -1 && col >= start) {
       si = i
