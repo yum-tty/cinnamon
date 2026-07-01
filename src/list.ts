@@ -6,6 +6,8 @@ import { type Binding, NewBinding, Matches, type KeyMap } from "./key"
 import { type SpinnerModel, Spinner as NewSpinner, Tick as SpinnerTick, SpinCmd, View as SpinnerView } from "./spinner"
 import { type TextInputModel, New as TextInputNew, SetValue as TextInputSetValue, Focus as TextInputFocus, Blur as TextInputBlur, Reset as TextInputReset, CursorEnd as TextInputCursorEnd, Update as TextInputUpdate, View as TextInputView, Value as TextInputValue, SetWidth as TextInputSetWidth } from "./textinput"
 
+const DefaultStatusMessageLifetime = 1000
+
 declare const setTimeout: any
 
 /**
@@ -355,6 +357,7 @@ export interface ListModel {
   itemNameSingular: string
   itemNamePlural: string
   statusMessage: string
+  statusMessageLifetime: number
   statusMessageTimer: any
   disableQuitKeybindings: boolean
   spinner: SpinnerModel
@@ -404,6 +407,7 @@ export function List(
     itemNameSingular: "item",
     itemNamePlural: "items",
     statusMessage: "",
+    statusMessageLifetime: DefaultStatusMessageLifetime,
     statusMessageTimer: null,
     disableQuitKeybindings: false,
     spinner: sp,
@@ -648,7 +652,7 @@ export function Items(m: ListModel): Item[] {
  * GoToStart goes to the first item.
  */
 export function GoToStart(m: ListModel): ListModel {
-  return { ...m, cursor: 0 }
+  return { ...m, cursor: 0, offset: 0 }
 }
 
 /**
@@ -844,10 +848,17 @@ export function SetSize(m: ListModel, width: number, height: number): ListModel 
 }
 
 /**
- * NewStatusMessage sets a status message.
+ * NewStatusMessage sets a status message and returns a command to clear it after the lifetime.
  */
-export function NewStatusMessage(m: ListModel, message: string): ListModel {
-  return { ...m, statusMessage: message }
+export function NewStatusMessage(m: ListModel, message: string): [ListModel, Cmd] {
+  if (m.statusMessageTimer != null) {
+    clearTimeout(m.statusMessageTimer)
+  }
+  const timer = setTimeout(() => {}, m.statusMessageLifetime)
+  return [
+    { ...m, statusMessage: message, statusMessageTimer: timer },
+    () => new Promise((resolve) => setTimeout(() => resolve({ type: "statusMessageTimeout" } as any), m.statusMessageLifetime)),
+  ]
 }
 
 /**
@@ -1073,29 +1084,35 @@ export function View(m: ListModel): string {
 
   const contentHeight = getContentHeight(m)
   const items = VisibleItems(m)
-  const contentLines: string[] = []
-  const delegateHeight = m.delegate.Height() || 1
 
-  let linesUsed = 0
-  for (let i = 0; linesUsed < contentHeight; i++) {
-    const itemIndex = m.offset + i
-    if (itemIndex < items.length) {
-      const item = items[itemIndex]!
-      const itemLines: string[] = []
-      m.delegate.Render((s) => itemLines.push(s), m, itemIndex, item)
-      for (const line of itemLines) {
-        if (linesUsed < contentHeight) {
-          contentLines.push(line)
-          linesUsed++
+  if (items.length === 0 && m.filterState !== "filtering") {
+    const emptyMsg = m.styles.noItems.render("No " + m.itemNamePlural + ".")
+    sections.push(emptyMsg)
+  } else {
+    const contentLines: string[] = []
+    const delegateHeight = m.delegate.Height() || 1
+
+    let linesUsed = 0
+    for (let i = 0; linesUsed < contentHeight; i++) {
+      const itemIndex = m.offset + i
+      if (itemIndex < items.length) {
+        const item = items[itemIndex]!
+        const itemLines: string[] = []
+        m.delegate.Render((s) => itemLines.push(s), m, itemIndex, item)
+        for (const line of itemLines) {
+          if (linesUsed < contentHeight) {
+            contentLines.push(line)
+            linesUsed++
+          }
         }
+      } else {
+        contentLines.push("")
+        linesUsed++
       }
-    } else {
-      contentLines.push("")
-      linesUsed++
     }
-  }
 
-  sections.push(contentLines.join("\n"))
+    sections.push(contentLines.join("\n"))
+  }
 
   if (m.showPagination) {
     const pagination = paginationView(m)

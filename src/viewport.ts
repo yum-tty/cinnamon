@@ -1,7 +1,7 @@
 // viewport.ts | scrollable viewport component (bubbles port)
 
 import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { NewStyle, type Style as StyleType, getStringWidth } from "caramel"
+import { NewStyle, type Style as StyleType, getStringWidth, StyleRanges, NewRange } from "caramel"
 import { type Binding, NewBinding, Matches, type KeyMap } from "./key"
 
 const DefaultHorizontalStep = 6
@@ -384,7 +384,7 @@ function clamp(v: number, low: number, high: number): number {
 
 function maxYOffset(m: ViewportModel): number {
   const total = calculateTotalLines(m)
-  return Math.max(0, total - m.height)
+  return Math.max(0, total - m.height + m.style.getVerticalFrameSize())
 }
 
 function calculateTotalLines(m: ViewportModel): number {
@@ -464,6 +464,40 @@ function maxLineWidth(lines: string[]): number {
   return r
 }
 
+function styleLines(m: ViewportModel, lines: string[], offset: number): string[] {
+  if (!m.styleLineFunc) return lines
+  for (let i = 0; i < lines.length; i++) {
+    lines[i] = m.styleLineFunc(i + offset).render(lines[i])
+  }
+  return lines
+}
+
+function highlightLines(m: ViewportModel, lines: string[], offset: number): string[] {
+  if (m.highlights.length === 0) return lines
+  for (let i = 0; i < lines.length; i++) {
+    const ranges = makeHighlightRanges(m.highlights, i + offset, m.highlightStyle)
+    lines[i] = StyleRanges(lines[i], ...ranges)
+    if (m.hiIdx < 0) continue
+    const sel = m.highlights[m.hiIdx]!
+    const hi = sel.lines.get(i + offset)
+    if (hi && hi[0] !== hi[1]) {
+      lines[i] = StyleRanges(lines[i], NewRange(hi[0], hi[1], m.selectedHighlightStyle))
+    }
+  }
+  return lines
+}
+
+function makeHighlightRanges(highlights: HighlightInfo[], line: number, style: StyleType): Array<{ start: number; end: number; style: StyleType }> {
+  const result: Array<{ start: number; end: number; style: StyleType }> = []
+  for (const hi of highlights) {
+    const lihi = hi.lines.get(line)
+    if (!lihi) continue
+    if (lihi[0] === lihi[1]) continue
+    result.push(NewRange(lihi[0], lihi[1], style))
+  }
+  return result
+}
+
 function visibleLines(m: ViewportModel): string[] {
   const mh = maxVisibleHeight(m)
   const mw = maxWidth(m)
@@ -471,7 +505,10 @@ function visibleLines(m: ViewportModel): string[] {
 
   const { total, ridx, voffset } = calculateLine(m, m.yOffset)
   const bottom = Math.min(ridx + mh, m.lines.length)
-  const lines = m.lines.slice(ridx, bottom).map((l) => l)
+  let lines = m.lines.slice(ridx, bottom).map((l) => l)
+
+  lines = styleLines(m, lines, ridx)
+  lines = highlightLines(m, lines, ridx)
 
   if (m.leftGutterFunc) {
     for (let i = 0; i < lines.length; i++) {
