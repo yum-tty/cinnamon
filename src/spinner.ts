@@ -25,7 +25,7 @@ export const spinners = {
   monkey: { frames: ["\uD83D\uDE49", "\uD83D\uDE4A", "\uD83D\uDE4B"], fps: 3 },
   meter: { frames: ["\u25B1\u25B1\u25B1", "\u25B0\u25B1\u25B1", "\u25B0\u25B0\u25B1", "\u25B0\u25B0\u25B0", "\u25B0\u25B0\u25B1", "\u25B0\u25B1\u25B1", "\u25B1\u25B1\u25B1"], fps: 7 },
   hamburger: { frames: ["\u2631", "\u2632", "\u2634", "\u2632"], fps: 3 },
-  ellipsis: { frames: ["", ".", "..", "..."], fps: 3 },
+  ellipsis: { frames: ["   ", ".  ", ".. ", "..."], fps: 3 },
 } as const
 
 export type SpinnerType = keyof typeof spinners

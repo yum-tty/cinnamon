@@ -94,6 +94,7 @@ export class DefaultDelegate implements ItemDelegate {
 export interface Rank {
   index: number
   matchedIndexes: number[]
+  score?: number
 }
 
 /**
@@ -103,36 +104,78 @@ export interface Rank {
 export type FilterFunc = (term: string, targets: string[]) => Rank[]
 
 /**
- * DefaultFilter uses fuzzy matching to filter items.
+ * Fuzzy score a single target against the pattern.
+ * Returns [score, matchedIndexes] or null if no match.
+ * Ported from sahilm/fuzzy scoring logic.
  */
-export function DefaultFilter(term: string, targets: string[]): Rank[] {
-  const results: Rank[] = []
-  const lowerTerm = term.toLowerCase()
+function scoreFuzzy(pattern: string, targetLower: string): [number, number[]] | null {
+  if (pattern.length === 0) { const r: [number, number[]] = [0, []]; return r }
+  if (targetLower.length === 0) return null
 
-  for (let i = 0; i < targets.length; i++) {
-    const target = targets[i]!.toLowerCase()
-    if (target.includes(lowerTerm)) {
-      const matchedIndexes: number[] = []
-      let searchIndex = 0
-      for (const char of lowerTerm) {
-        const idx = target.indexOf(char, searchIndex)
-        if (idx >= 0) {
-          matchedIndexes.push(idx)
-          searchIndex = idx + 1
-        }
+  const matchedIndexes: number[] = []
+  let pi = 0
+  let score = 0
+  let consecutiveBonus = 0
+  let lastMatchIdx = -2
+
+  for (let ti = 0; ti < targetLower.length && pi < pattern.length; ti++) {
+    if (targetLower[ti] === pattern[pi]) {
+      matchedIndexes.push(ti)
+      score += 1
+      if (ti === lastMatchIdx + 1) {
+        consecutiveBonus += 5
+        score += consecutiveBonus
+      } else {
+        consecutiveBonus = 0
       }
-      results.push({ index: i, matchedIndexes })
+      if (ti === 0) score += 10
+      else if (targetLower[ti - 1] === " " || targetLower[ti - 1] === "-" || targetLower[ti - 1] === "_" || targetLower[ti - 1] === "/") score += 8
+      lastMatchIdx = ti
+      pi++
     }
   }
 
+  if (pi < pattern.length) return null
+  return [score, matchedIndexes]
+}
+
+/**
+ * DefaultFilter uses fuzzy matching to filter items.
+ * Scores matches by character proximity, consecutive bonus, and word boundary bonus.
+ */
+export function DefaultFilter(term: string, targets: string[]): Rank[] {
+  const results: Rank[] = []
+  const pattern = term.toLowerCase()
+
+  for (let i = 0; i < targets.length; i++) {
+    const targetLower = targets[i]!.toLowerCase()
+    const hit = scoreFuzzy(pattern, targetLower)
+    if (hit) {
+      results.push({ index: i, matchedIndexes: hit[1], score: hit[0] })
+    }
+  }
+
+  results.sort((a, b) => b.score! - a.score!)
   return results
 }
 
 /**
  * UnsortedFilter filters items without sorting by match quality.
+ * Returns results in original item order.
  */
 export function UnsortedFilter(term: string, targets: string[]): Rank[] {
-  return DefaultFilter(term, targets)
+  const results: Rank[] = []
+  const pattern = term.toLowerCase()
+
+  for (let i = 0; i < targets.length; i++) {
+    const targetLower = targets[i]!.toLowerCase()
+    const hit = scoreFuzzy(pattern, targetLower)
+    if (hit) {
+      results.push({ index: i, matchedIndexes: hit[1], score: hit[0] })
+    }
+  }
+
+  return results
 }
 
 /**
@@ -318,6 +361,7 @@ export interface ListModel {
   showSpinner: boolean
   styles: Styles
   filter: FilterFunc
+  filteredMatches: number[][]
 }
 
 /**
@@ -366,16 +410,24 @@ export function List(
     showSpinner: false,
     styles,
     filter: DefaultFilter,
+    filteredMatches: [],
   }
 }
 
 /**
- * SetItems sets the list items.
+ * SetItems sets the list items and re-filters if a filter is active.
  */
 export function SetItems(m: ListModel, items: Item[]): ListModel {
-  const newM = { ...m, items, filteredItems: items, cursor: 0, offset: 0 }
-  if (m.filterState !== "unfiltered") {
-    newM.filteredItems = []
+  const newM: ListModel = { ...m, items, cursor: 0, offset: 0 }
+  if (m.filterState === "filtered") {
+    const filterText = TextInputValue(m.filterInput)
+    const targets = items.map((item) => item.filterValue())
+    const ranks = m.filter(filterText, targets)
+    newM.filteredItems = ranks.map((r) => items[r.index]!)
+    newM.filteredMatches = ranks.map((r) => r.matchedIndexes)
+  } else {
+    newM.filteredItems = items
+    newM.filteredMatches = []
   }
   return newM
 }
@@ -400,23 +452,39 @@ export function ResetSelected(m: ListModel): ListModel {
 }
 
 /**
- * SetItem replaces an item at the given index.
+ * SetItem replaces an item at the given index and re-filters if a filter is active.
  */
 export function SetItem(m: ListModel, index: number, item: Item): ListModel {
   if (index < 0 || index >= m.items.length) return m
   const newItems = [...m.items]
   newItems[index] = item
-  return { ...m, items: newItems }
+  const newM: ListModel = { ...m, items: newItems }
+  if (m.filterState === "filtered") {
+    const filterText = TextInputValue(m.filterInput)
+    const targets = newItems.map((it) => it.filterValue())
+    const ranks = m.filter(filterText, targets)
+    newM.filteredItems = ranks.map((r) => newItems[r.index]!)
+    newM.filteredMatches = ranks.map((r) => r.matchedIndexes)
+  }
+  return newM
 }
 
 /**
- * InsertItem inserts an item at the given index.
+ * InsertItem inserts an item at the given index and re-filters if a filter is active.
  */
 export function InsertItem(m: ListModel, index: number, item: Item): ListModel {
   const newItems = [...m.items]
   const clampedIndex = Math.max(0, Math.min(index, newItems.length))
   newItems.splice(clampedIndex, 0, item)
-  return { ...m, items: newItems }
+  const newM: ListModel = { ...m, items: newItems }
+  if (m.filterState === "filtered") {
+    const filterText = TextInputValue(m.filterInput)
+    const targets = newItems.map((it) => it.filterValue())
+    const ranks = m.filter(filterText, targets)
+    newM.filteredItems = ranks.map((r) => newItems[r.index]!)
+    newM.filteredMatches = ranks.map((r) => r.matchedIndexes)
+  }
+  return newM
 }
 
 /**
@@ -427,7 +495,15 @@ export function RemoveItem(m: ListModel, index: number): ListModel {
   if (index >= 0 && index < newItems.length) {
     newItems.splice(index, 1)
   }
-  return { ...m, items: newItems, cursor: Math.min(m.cursor, Math.max(0, newItems.length - 1)) }
+  const newM: ListModel = { ...m, items: newItems, cursor: Math.min(m.cursor, Math.max(0, newItems.length - 1)) }
+  if (m.filterState === "filtered") {
+    const filterText = TextInputValue(m.filterInput)
+    const targets = newItems.map((it) => it.filterValue())
+    const ranks = m.filter(filterText, targets)
+    newM.filteredItems = ranks.map((r) => newItems[r.index]!)
+    newM.filteredMatches = ranks.map((r) => r.matchedIndexes)
+  }
+  return newM
 }
 
 /**
@@ -483,9 +559,10 @@ export function SetFilterText(m: ListModel, filter: string): ListModel {
   const targets = m.items.map((item) => item.filterValue())
   const ranks = m.filter(filter, targets)
   const filteredItems = ranks.map((r) => m.items[r.index]!)
+  const filteredMatches = ranks.map((r) => r.matchedIndexes)
   let filterInput = TextInputSetValue(m.filterInput, filter)
   filterInput = TextInputCursorEnd(filterInput)
-  return { ...m, filterState: "filtered", filterInput, filteredItems, cursor: 0, offset: 0 }
+  return { ...m, filterState: "filtered", filterInput, filteredItems, filteredMatches, cursor: 0, offset: 0 }
 }
 
 /**
@@ -679,6 +756,71 @@ export function SetShowHelp(m: ListModel, show: boolean): ListModel {
 }
 
 /**
+ * ShowTitle returns whether the title is shown.
+ */
+export function ShowTitle(m: ListModel): boolean {
+  return m.showTitle
+}
+
+/**
+ * ShowFilter returns whether the filter is shown.
+ */
+export function ShowFilter(m: ListModel): boolean {
+  return m.showFilter
+}
+
+/**
+ * ShowStatusBar returns whether the status bar is shown.
+ */
+export function ShowStatusBar(m: ListModel): boolean {
+  return m.showStatusBar
+}
+
+/**
+ * ShowPagination returns whether pagination is shown.
+ */
+export function ShowPagination(m: ListModel): boolean {
+  return m.showPagination
+}
+
+/**
+ * ShowHelp returns whether help is shown.
+ */
+export function ShowHelp(m: ListModel): boolean {
+  return m.showHelp
+}
+
+/**
+ * FilteringEnabled returns whether filtering is enabled.
+ */
+export function FilteringEnabled(m: ListModel): boolean {
+  return m.filteringEnabled
+}
+
+/**
+ * StatusBarItemName returns the singular and plural item names for the status bar.
+ */
+export function StatusBarItemName(m: ListModel): [string, string] {
+  return [m.itemNameSingular, m.itemNamePlural]
+}
+
+/**
+ * SetStatusBarItemName sets the singular and plural item names for the status bar.
+ */
+export function SetStatusBarItemName(m: ListModel, singular: string, plural: string): ListModel {
+  return { ...m, itemNameSingular: singular, itemNamePlural: plural }
+}
+
+/**
+ * MatchesForItem returns the filter match positions for the item at the given visible index.
+ * Returns an empty array if not filtered or no matches available.
+ */
+export function MatchesForItem(m: ListModel, index: number): number[] {
+  if (m.filterState !== "filtered") return []
+  return m.filteredMatches[index] ?? []
+}
+
+/**
  * SetWidth sets the list width.
  */
 export function SetWidth(m: ListModel, width: number): ListModel {
@@ -718,6 +860,7 @@ export function ResetFilter(m: ListModel): ListModel {
     filterState: "unfiltered",
     filterInput: resetFilterInput,
     filteredItems: m.items,
+    filteredMatches: [],
     cursor: 0,
     offset: 0,
   }
@@ -837,7 +980,7 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
       const blurredInput = TextInputBlur(m.filterInput)
       if (m.filteredItems.length === 0) {
         const resetInput = TextInputReset(blurredInput)
-        return [{ ...m, filterState: "unfiltered", filterInput: resetInput, filteredItems: m.items, cursor: 0, offset: 0 }, null]
+        return [{ ...m, filterState: "unfiltered", filterInput: resetInput, filteredItems: m.items, filteredMatches: [], cursor: 0, offset: 0 }, null]
       }
       const newCursor = Math.min(m.cursor, m.filteredItems.length - 1)
       return [{ ...m, filterState: "filtered", filterInput: blurredInput, cursor: newCursor, offset: 0 }, null]
@@ -849,10 +992,11 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
       const targets = m.items.map((item) => item.filterValue())
       const ranks = m.filter(newValue, targets)
       const filteredItems = ranks.map((r) => m.items[r.index]!)
+      const filteredMatches = ranks.map((r) => r.matchedIndexes)
       const newCursor = Math.min(m.cursor, Math.max(0, filteredItems.length - 1))
       const ch = getContentHeight(m)
       const newOffset = filteredItems.length <= ch ? 0 : Math.min(m.offset, newCursor)
-      return [{ ...m, filterInput: newFilterInput, filteredItems, cursor: newCursor, offset: newOffset }, inputCmd]
+      return [{ ...m, filterInput: newFilterInput, filteredItems, filteredMatches, cursor: newCursor, offset: newOffset }, inputCmd]
     }
     return [{ ...m, filterInput: newFilterInput }, inputCmd]
   }

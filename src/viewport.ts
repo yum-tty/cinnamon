@@ -64,6 +64,9 @@ export interface ViewportModel {
   leftGutterFunc: GutterFunc
   highlights: HighlightInfo[]
   hiIdx: number
+  highlightStyle: StyleType
+  selectedHighlightStyle: StyleType
+  styleLineFunc: ((line: number) => StyleType) | null
 }
 
 export function Viewport(width: number, height: number): ViewportModel {
@@ -85,6 +88,9 @@ export function Viewport(width: number, height: number): ViewportModel {
     leftGutterFunc: NoGutter,
     highlights: [],
     hiIdx: -1,
+    highlightStyle: NewStyle(),
+    selectedHighlightStyle: NewStyle(),
+    styleLineFunc: null,
   }
 }
 
@@ -139,6 +145,30 @@ export function GetLeftGutterFunc(m: ViewportModel): GutterFunc {
 
 export function SetLeftGutterFunc(m: ViewportModel, fn: GutterFunc): ViewportModel {
   return { ...m, leftGutterFunc: fn }
+}
+
+export function GetHighlightStyle(m: ViewportModel): StyleType {
+  return m.highlightStyle
+}
+
+export function SetHighlightStyle(m: ViewportModel, s: StyleType): ViewportModel {
+  return { ...m, highlightStyle: s }
+}
+
+export function GetSelectedHighlightStyle(m: ViewportModel): StyleType {
+  return m.selectedHighlightStyle
+}
+
+export function SetSelectedHighlightStyle(m: ViewportModel, s: StyleType): ViewportModel {
+  return { ...m, selectedHighlightStyle: s }
+}
+
+export function GetStyleLineFunc(m: ViewportModel): ((line: number) => StyleType) | null {
+  return m.styleLineFunc
+}
+
+export function SetStyleLineFunc(m: ViewportModel, fn: ((line: number) => StyleType) | null): ViewportModel {
+  return { ...m, styleLineFunc: fn }
 }
 
 export function HorizontalScrollPercent(m: ViewportModel): number {
