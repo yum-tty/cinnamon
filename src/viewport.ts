@@ -563,16 +563,32 @@ function softWrap(lines: string[], maxW: number, maxH: number, ridx: number, vof
 }
 
 function truncateStr(str: string, start: number, end: number): string {
-  let w = 0
-  let si = 0
-  let ei = str.length
-  for (let i = 0; i < str.length; i++) {
-    const charWidth = getStringWidth(str[i]!)
-    if (w >= start && si === 0) si = i
-    if (w + charWidth > end) { ei = i; break }
-    w += charWidth
+  if (start >= end || str.length === 0) return ""
+
+  const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" })
+  const segments = [...segmenter.segment(str)]
+
+  let col = 0
+  let si = -1
+  const result: string[] = []
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i]!
+    const segWidth = Bun.stringWidth(seg.segment)
+
+    if (si === -1 && col >= start) {
+      si = i
+    }
+
+    if (si !== -1) {
+      if (col >= end) break
+      result.push(seg.segment)
+    }
+
+    col += segWidth
   }
-  return w < start ? "" : str.slice(si, ei)
+
+  return si === -1 ? "" : result.join("")
 }
 
 function findNearestMatch(hi: HighlightInfo[], yo: number): number {

@@ -8,7 +8,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
-    "types": ["node"],
+    "types": ["bun-types", "node"],
     "lib": ["ESNext"]
   },
   "include": ["src/**/*.ts"]

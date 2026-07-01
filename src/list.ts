@@ -577,7 +577,15 @@ export function SetFilterText(m: ListModel, filter: string): ListModel {
  * SetFilterState allows setting the filtering state manually.
  */
 export function SetFilterState(m: ListModel, state: FilterState): ListModel {
-  return { ...m, filterState: state }
+  let newM = GoToStart(m)
+  let filterInput = newM.filterInput
+  filterInput = TextInputCursorEnd(filterInput)
+  if (state === "filtering") {
+    filterInput = TextInputFocus(filterInput)[0] ?? filterInput
+  } else if (m.filterState === "filtering") {
+    filterInput = TextInputBlur(filterInput)
+  }
+  return { ...newM, filterState: state, filterInput }
 }
 
 /**
@@ -991,6 +999,14 @@ export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
 
   if (msg.type === "statusMessageTimeout") {
     return [{ ...m, statusMessage: "" }, null]
+  }
+
+  if (Array.isArray(msg) && msg.length > 0 && typeof msg[0] === "object" && "item" in msg[0]!) {
+    const matches = msg as FilterMatchItem[]
+    const filteredItems = matches.map((m) => m.item)
+    const filteredMatches = matches.map((m) => m.matches)
+    const newCursor = Math.min(m.cursor, Math.max(0, filteredItems.length - 1))
+    return [{ ...m, filteredItems, filteredMatches, cursor: newCursor }, null]
   }
 
   if (msg.type !== "key") return [m, null]
