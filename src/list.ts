@@ -1,0 +1,937 @@
+import type { Model, Msg, Cmd } from "cinnamon-bun"
+import { Style } from "caramel"
+import { type Binding, NewBinding, Matches, type KeyMap } from "./key"
+import { type SpinnerModel, Spinner as NewSpinner, Tick as SpinnerTick, SpinCmd, View as SpinnerView } from "./spinner"
+import { type TextInputModel, New as TextInputNew, SetValue as TextInputSetValue, Focus as TextInputFocus, Blur as TextInputBlur, Reset as TextInputReset, CursorEnd as TextInputCursorEnd, Update as TextInputUpdate, View as TextInputView, Value as TextInputValue, SetWidth as TextInputSetWidth } from "./textinput"
+
+const DefaultStatusMessageLifetime = 1000
+
+export interface Item {
+  filterValue(): string
+}
+
+export class DefaultItem implements Item {
+  constructor(
+    public title: string,
+    public description: string = "",
+  ) {}
+
+  filterValue(): string {
+    return this.title
+  }
+}
+
+export interface ItemDelegate {
+  Height(): number
+  Spacing(): number
+  Render(w: (s: string) => void, m: ListModel, index: number, item: Item): void
+  Update(msg: Msg, m: ListModel): Cmd
+}
+
+export class DefaultDelegate implements ItemDelegate {
+  showDescription: boolean = true
+  private height: number = 2
+  private spacing: number = 1
+  private styles: {
+    normal: Style
+    selected: Style
+    title: Style
+    desc: Style
+    dimmed: Style
+  }
+
+  constructor(dark: boolean = true) {
+    this.styles = {
+      normal: new Style().foreground(dark ? "#AAAAAA" : "#555555"),
+      selected: new Style().foreground(dark ? "#FFFFFF" : "#000000"),
+      title: new Style().bold(true),
+      desc: new Style().foreground(dark ? "#666666" : "#999999"),
+      dimmed: new Style().dim(true).foreground(dark ? "#444444" : "#BBBBBB"),
+    }
+  }
+
+  Height(): number { return this.showDescription ? this.height : 1 }
+  Spacing(): number { return this.spacing }
+  ShortHelp(): Binding[] { return [] }
+
+  Render(w: (s: string) => void, m: ListModel, index: number, item: Item): void {
+    const isSelected = index === m.cursor
+
+    if (item instanceof DefaultItem) {
+      const title = this.styles.title.render(item.title)
+      const desc = item.description ? this.styles.desc.render(` ${item.description}`) : ""
+      if (isSelected) {
+        w(this.styles.selected.render(`▸ ${title}${desc}`))
+      } else {
+        w(this.styles.normal.render(`  ${title}${desc}`))
+      }
+    } else {
+      const text = item.filterValue()
+      if (isSelected) {
+        w(this.styles.selected.render(`▸ ${text}`))
+      } else {
+        w(this.styles.normal.render(`  ${text}`))
+      }
+    }
+  }
+
+  Update(msg: Msg, m: ListModel): Cmd { return null }
+}
+
+export interface Rank {
+  index: number
+  matchedIndexes: number[]
+  score?: number
+}
+
+export type FilterFunc = (term: string, targets: string[]) => Rank[]
+
+function scoreFuzzy(pattern: string, targetLower: string): [number, number[]] | null {
+  if (pattern.length === 0) { const r: [number, number[]] = [0, []]; return r }
+  if (targetLower.length === 0) return null
+
+  const matchedIndexes: number[] = []
+  let pi = 0
+  let score = 0
+  let consecutiveBonus = 0
+  let lastMatchIdx = -2
+
+  for (let ti = 0; ti < targetLower.length && pi < pattern.length; ti++) {
+    if (targetLower[ti] === pattern[pi]) {
+      matchedIndexes.push(ti)
+      score += 1
+      if (ti === lastMatchIdx + 1) {
+        consecutiveBonus += 5
+        score += consecutiveBonus
+      } else {
+        consecutiveBonus = 0
+      }
+      if (ti === 0) score += 10
+      else if (targetLower[ti - 1] === " " || targetLower[ti - 1] === "-" || targetLower[ti - 1] === "_" || targetLower[ti - 1] === "/") score += 8
+      lastMatchIdx = ti
+      pi++
+    }
+  }
+
+  if (pi < pattern.length) return null
+  return [score, matchedIndexes]
+}
+
+export function DefaultFilter(term: string, targets: string[]): Rank[] {
+  const results: Rank[] = []
+  const pattern = term.toLowerCase()
+
+  for (let i = 0; i < targets.length; i++) {
+    const targetLower = targets[i]!.toLowerCase()
+    const hit = scoreFuzzy(pattern, targetLower)
+    if (hit) {
+      results.push({ index: i, matchedIndexes: hit[1], score: hit[0] })
+    }
+  }
+
+  results.sort((a, b) => b.score! - a.score!)
+  return results
+}
+
+export function UnsortedFilter(term: string, targets: string[]): Rank[] {
+  const results: Rank[] = []
+  const pattern = term.toLowerCase()
+
+  for (let i = 0; i < targets.length; i++) {
+    const targetLower = targets[i]!.toLowerCase()
+    const hit = scoreFuzzy(pattern, targetLower)
+    if (hit) {
+      results.push({ index: i, matchedIndexes: hit[1], score: hit[0] })
+    }
+  }
+
+  return results
+}
+
+export interface FilterMatchItem {
+  index: number
+  item: Item
+  matches: number[]
+}
+
+export type FilterMatchesMsg = FilterMatchItem[]
+
+type statusMessageTimeoutMsg = { type: "statusMessageTimeout" }
+
+export interface Styles {
+  titleBar: Style
+  title: Style
+  spinner: Style
+  defaultFilterCharacterMatch: Style
+  statusBar: Style
+  statusEmpty: Style
+  statusBarActiveFilter: Style
+  statusBarFilterCount: Style
+  noItems: Style
+  paginationStyle: Style
+  helpStyle: Style
+  activePaginationDot: Style
+  inactivePaginationDot: Style
+  arabicPagination: Style
+  dividerDot: Style
+}
+
+export function DefaultStyles(isDark: boolean): Styles {
+  const verySubduedColor = isDark ? "#3C3C3C" : "#DDDADA"
+  const subduedColor = isDark ? "#5C5C5C" : "#9B9B9B"
+  const spinnerColor = isDark ? "#747373" : "#8E8E8E"
+  const statusBarColor = isDark ? "#777777" : "#A49FA5"
+  const activeFilterColor = isDark ? "#dddddd" : "#1a1a1a"
+  const noItemsColor = isDark ? "#626262" : "#909090"
+
+  return {
+    titleBar: new Style().padding(0, 0, 1, 2),
+    title: new Style().background("62").foreground("230").padding(0, 1),
+    spinner: new Style().foreground(spinnerColor),
+    defaultFilterCharacterMatch: new Style().underline(true),
+    statusBar: new Style().foreground(statusBarColor).padding(0, 0, 1, 2),
+    statusEmpty: new Style().foreground(subduedColor),
+    statusBarActiveFilter: new Style().foreground(activeFilterColor),
+    statusBarFilterCount: new Style().foreground(verySubduedColor),
+    noItems: new Style().foreground(noItemsColor),
+    paginationStyle: new Style().paddingLeft(2),
+    helpStyle: new Style().padding(1, 0, 0, 2),
+    activePaginationDot: new Style().foreground(isDark ? "#979797" : "#847A85"),
+    inactivePaginationDot: new Style().foreground(verySubduedColor),
+    arabicPagination: new Style().foreground(subduedColor),
+    dividerDot: new Style().foreground(verySubduedColor),
+  }
+}
+
+export interface ListKeyMap {
+  CursorUp: Binding
+  CursorDown: Binding
+  NextPage: Binding
+  PrevPage: Binding
+  GoToStart: Binding
+  GoToEnd: Binding
+  Filter: Binding
+  ClearFilter: Binding
+  CancelWhileFiltering: Binding
+  AcceptWhileFiltering: Binding
+  ShowFullHelp: Binding
+  CloseFullHelp: Binding
+  Quit: Binding
+  ForceQuit: Binding
+}
+
+export function DefaultListKeyMap(): ListKeyMap {
+  return {
+    CursorUp: NewBinding({ keys: ["up", "k"], help: "\u2191/k" }),
+    CursorDown: NewBinding({ keys: ["down", "j"], help: "\u2193/j" }),
+    NextPage: NewBinding({ keys: ["right", "l", "pgdown", "f", "d"], help: "\u2192/l/pgdn" }),
+    PrevPage: NewBinding({ keys: ["left", "h", "pgup", "b", "u"], help: "\u2190/h/pgup" }),
+    GoToStart: NewBinding({ keys: ["home", "g"], help: "g/home" }),
+    GoToEnd: NewBinding({ keys: ["end", "G"], help: "G/end" }),
+    Filter: NewBinding({ keys: ["/"], help: "/" }),
+    ClearFilter: NewBinding({ keys: ["esc"], help: "esc" }),
+    CancelWhileFiltering: NewBinding({ keys: ["esc"], help: "esc" }),
+    AcceptWhileFiltering: NewBinding({ keys: ["enter", "tab", "shift+tab", "ctrl+k", "up", "ctrl+j", "down"], help: "enter" }),
+    ShowFullHelp: NewBinding({ keys: ["?"], help: "?" }),
+    CloseFullHelp: NewBinding({ keys: ["?"], help: "?" }),
+    Quit: NewBinding({ keys: ["q", "esc"], help: "q" }),
+    ForceQuit: NewBinding({ keys: ["ctrl+c"] }),
+  }
+}
+
+export type FilterState = "unfiltered" | "filtering" | "filtered"
+
+export interface ListModel {
+  items: Item[]
+  filteredItems: Item[]
+  delegate: ItemDelegate
+  cursor: number
+  offset: number
+  width: number
+  height: number
+  title: string
+  filterState: FilterState
+  filterInput: TextInputModel
+  keyMap: ListKeyMap
+  showTitle: boolean
+  showFilter: boolean
+  showStatusBar: boolean
+  showPagination: boolean
+  showHelp: boolean
+  filteringEnabled: boolean
+  infiniteScrolling: boolean
+  itemNameSingular: string
+  itemNamePlural: string
+  statusMessage: string
+  statusMessageLifetime: number
+  statusMessageTimer: any
+  disableQuitKeybindings: boolean
+  spinner: SpinnerModel
+  showSpinner: boolean
+  styles: Styles
+  filter: FilterFunc
+  filteredMatches: number[][]
+}
+
+export function List(
+  items: Item[],
+  delegate: ItemDelegate,
+  width: number,
+  height: number,
+): ListModel {
+  const styles = DefaultStyles(true)
+  const sp = NewSpinner({ type: "line" })
+  sp.style = styles.spinner
+
+  const filterInput = TextInputNew()
+  filterInput.prompt = "Filter: "
+  filterInput.charLimit = 64
+  const [focusedFilterInput] = TextInputFocus(filterInput)
+
+  return {
+    items,
+    filteredItems: items,
+    delegate,
+    cursor: 0,
+    offset: 0,
+    width,
+    height,
+    title: "List",
+    filterState: "unfiltered",
+    filterInput: focusedFilterInput,
+    keyMap: DefaultListKeyMap(),
+    showTitle: true,
+    showFilter: true,
+    showStatusBar: true,
+    showPagination: true,
+    showHelp: true,
+    filteringEnabled: true,
+    infiniteScrolling: false,
+    itemNameSingular: "item",
+    itemNamePlural: "items",
+    statusMessage: "",
+    statusMessageLifetime: DefaultStatusMessageLifetime,
+    statusMessageTimer: null,
+    disableQuitKeybindings: false,
+    spinner: sp,
+    showSpinner: false,
+    styles,
+    filter: DefaultFilter,
+    filteredMatches: [],
+  }
+}
+
+export function SetItems(m: ListModel, items: Item[]): ListModel {
+  const newM: ListModel = { ...m, items, cursor: 0, offset: 0 }
+  if (m.filterState === "filtered") {
+    const filterText = TextInputValue(m.filterInput)
+    const targets = items.map((item) => item.filterValue())
+    const ranks = m.filter(filterText, targets)
+    newM.filteredItems = ranks.map((r) => items[r.index]!)
+    newM.filteredMatches = ranks.map((r) => r.matchedIndexes)
+  } else {
+    newM.filteredItems = items
+    newM.filteredMatches = []
+  }
+  return newM
+}
+
+export function Select(m: ListModel, index: number): ListModel {
+  const perPage = Math.max(1, Math.floor((m.height - 2) / Math.max(1, m.delegate.Height() + m.delegate.Spacing())))
+  return {
+    ...m,
+    cursor: index % perPage,
+    offset: Math.floor(index / perPage) * perPage,
+  }
+}
+
+export function ResetSelected(m: ListModel): ListModel {
+  return { ...m, cursor: 0, offset: 0 }
+}
+
+export function SetDelegate(m: ListModel, d: ItemDelegate): ListModel {
+  return { ...m, delegate: d }
+}
+
+export function Cursor(m: ListModel): number {
+  return m.cursor
+}
+
+export function ShortHelp(m: ListModel): Binding[] {
+  return [
+    m.keyMap.CursorUp,
+    m.keyMap.CursorDown,
+    m.keyMap.Filter,
+    m.keyMap.ClearFilter,
+    m.keyMap.Quit,
+  ].filter((b) => b.Enabled())
+}
+
+export function FullHelp(m: ListModel): Binding[][] {
+  return [
+    ShortHelp(m),
+    [m.keyMap.NextPage, m.keyMap.PrevPage, m.keyMap.GoToStart, m.keyMap.GoToEnd],
+  ]
+}
+
+export function SetItem(m: ListModel, index: number, item: Item): ListModel {
+  if (index < 0 || index >= m.items.length) return m
+  const newItems = [...m.items]
+  newItems[index] = item
+  const newM: ListModel = { ...m, items: newItems }
+  if (m.filterState === "filtered") {
+    const filterText = TextInputValue(m.filterInput)
+    const targets = newItems.map((it) => it.filterValue())
+    const ranks = m.filter(filterText, targets)
+    newM.filteredItems = ranks.map((r) => newItems[r.index]!)
+    newM.filteredMatches = ranks.map((r) => r.matchedIndexes)
+  }
+  return newM
+}
+
+export function InsertItem(m: ListModel, index: number, item: Item): ListModel {
+  const newItems = [...m.items]
+  const clampedIndex = Math.max(0, Math.min(index, newItems.length))
+  newItems.splice(clampedIndex, 0, item)
+  const newM: ListModel = { ...m, items: newItems }
+  if (m.filterState === "filtered") {
+    const filterText = TextInputValue(m.filterInput)
+    const targets = newItems.map((it) => it.filterValue())
+    const ranks = m.filter(filterText, targets)
+    newM.filteredItems = ranks.map((r) => newItems[r.index]!)
+    newM.filteredMatches = ranks.map((r) => r.matchedIndexes)
+  }
+  return newM
+}
+
+export function RemoveItem(m: ListModel, index: number): ListModel {
+  const newItems = [...m.items]
+  if (index >= 0 && index < newItems.length) {
+    newItems.splice(index, 1)
+  }
+  const newM: ListModel = { ...m, items: newItems, cursor: Math.min(m.cursor, Math.max(0, newItems.length - 1)) }
+  if (m.filterState === "filtered") {
+    const filterText = TextInputValue(m.filterInput)
+    const targets = newItems.map((it) => it.filterValue())
+    const ranks = m.filter(filterText, targets)
+    newM.filteredItems = ranks.map((r) => newItems[r.index]!)
+    newM.filteredMatches = ranks.map((r) => r.matchedIndexes)
+  }
+  return newM
+}
+
+export function SetSpinner(m: ListModel, type: string): ListModel {
+  const sp = NewSpinner({ type: type as any })
+  sp.style = m.styles.spinner
+  return { ...m, spinner: sp }
+}
+
+export function ToggleSpinner(m: ListModel): [ListModel, Cmd] {
+  if (!m.showSpinner) {
+    return StartSpinner(m)
+  }
+  StopSpinner(m)
+  return [{ ...m, showSpinner: false }, null]
+}
+
+export function StartSpinner(m: ListModel): [ListModel, Cmd] {
+  return [{ ...m, showSpinner: true }, SpinCmd(m.spinner)]
+}
+
+export function StopSpinner(m: ListModel): ListModel {
+  return { ...m, showSpinner: false }
+}
+
+export function DisableQuitKeybindings(m: ListModel): ListModel {
+  const newKeyMap = { ...m.keyMap }
+  newKeyMap.Quit = { ...m.keyMap.Quit } as any
+  newKeyMap.ForceQuit = { ...m.keyMap.ForceQuit } as any
+  newKeyMap.Quit.SetEnabled(false)
+  newKeyMap.ForceQuit.SetEnabled(false)
+  return { ...m, keyMap: newKeyMap, disableQuitKeybindings: true }
+}
+
+export function SetFilterText(m: ListModel, filter: string): ListModel {
+  const targets = m.items.map((item) => item.filterValue())
+  const ranks = m.filter(filter, targets)
+  const filteredItems = ranks.map((r) => m.items[r.index]!)
+  const filteredMatches = ranks.map((r) => r.matchedIndexes)
+  let filterInput = TextInputSetValue(m.filterInput, filter)
+  filterInput = TextInputCursorEnd(filterInput)
+  return { ...m, filterState: "filtered", filterInput, filteredItems, filteredMatches, cursor: 0, offset: 0 }
+}
+
+export function SetFilterState(m: ListModel, state: FilterState): ListModel {
+  let newM = GoToStart(m)
+  let filterInput = newM.filterInput
+  filterInput = TextInputCursorEnd(filterInput)
+  if (state === "filtering") {
+    filterInput = TextInputFocus(filterInput)[0] ?? filterInput
+  } else if (m.filterState === "filtering") {
+    filterInput = TextInputBlur(filterInput)
+  }
+  return { ...newM, filterState: state, filterInput }
+}
+
+export function CursorUp(m: ListModel): ListModel {
+  if (m.cursor > 0) {
+    const newCursor = m.cursor - 1
+    const newOffset = newCursor < m.offset ? newCursor : m.offset
+    return { ...m, cursor: newCursor, offset: newOffset }
+  }
+  if (m.infiniteScrolling) {
+    const last = m.filteredItems.length - 1
+    return { ...m, cursor: last, offset: Math.max(0, last - m.height + 1) }
+  }
+  return m
+}
+
+export function CursorDown(m: ListModel): ListModel {
+  if (m.cursor < m.filteredItems.length - 1) {
+    const newCursor = m.cursor + 1
+    const ch = getContentHeight(m)
+    const newOffset = newCursor >= m.offset + ch ? newCursor - ch + 1 : m.offset
+    return { ...m, cursor: newCursor, offset: newOffset }
+  }
+  if (m.infiniteScrolling) {
+    return { ...m, cursor: 0, offset: 0 }
+  }
+  return m
+}
+
+export function Index(m: ListModel): number {
+  return m.cursor
+}
+
+export function GlobalIndex(m: ListModel): number {
+  if (m.filterState !== "filtered") return m.cursor
+  const item = m.filteredItems[m.cursor]
+  if (!item) return m.cursor
+  return m.items.indexOf(item)
+}
+
+export function SelectedItem(m: ListModel): Item | null {
+  const items = m.filterState === "filtered" ? m.filteredItems : m.items
+  if (m.cursor < 0 || m.cursor >= items.length) return null
+  return items[m.cursor]!
+}
+
+export function VisibleItems(m: ListModel): Item[] {
+  return m.filterState === "filtered" ? m.filteredItems : m.items
+}
+
+export function Items(m: ListModel): Item[] {
+  return m.items
+}
+
+export function GoToStart(m: ListModel): ListModel {
+  return { ...m, cursor: 0, offset: 0 }
+}
+
+export function GoToEnd(m: ListModel): ListModel {
+  const items = VisibleItems(m)
+  return { ...m, cursor: Math.max(0, items.length - 1) }
+}
+
+export function PrevPage(m: ListModel): ListModel {
+  const ch = getContentHeight(m)
+  const newCursor = Math.max(0, m.cursor - ch)
+  return { ...m, cursor: newCursor, offset: Math.max(0, newCursor - ch + 1) }
+}
+
+export function NextPage(m: ListModel): ListModel {
+  const items = VisibleItems(m)
+  const ch = getContentHeight(m)
+  const newCursor = Math.min(items.length - 1, m.cursor + ch)
+  return { ...m, cursor: newCursor, offset: Math.max(0, newCursor - ch + 1) }
+}
+
+export function FilterStateFn(m: ListModel): FilterState {
+  return m.filterState
+}
+
+export function FilterValue(m: ListModel): string {
+  return TextInputValue(m.filterInput)
+}
+
+export function SettingFilter(m: ListModel): boolean {
+  return m.filterState === "filtering"
+}
+
+export function IsFiltered(m: ListModel): boolean {
+  return m.filterState === "filtered"
+}
+
+export function SetFilteringEnabled(m: ListModel, enabled: boolean): ListModel {
+  return { ...m, filteringEnabled: enabled }
+}
+
+export function SetFilterFunc(m: ListModel, fn: FilterFunc): ListModel {
+  return { ...m, filter: fn }
+}
+
+export function SetShowTitle(m: ListModel, show: boolean): ListModel {
+  return { ...m, showTitle: show }
+}
+
+export function SetShowFilter(m: ListModel, show: boolean): ListModel {
+  return { ...m, showFilter: show }
+}
+
+export function SetShowStatusBar(m: ListModel, show: boolean): ListModel {
+  return { ...m, showStatusBar: show }
+}
+
+export function SetShowPagination(m: ListModel, show: boolean): ListModel {
+  return { ...m, showPagination: show }
+}
+
+export function SetShowHelp(m: ListModel, show: boolean): ListModel {
+  return { ...m, showHelp: show }
+}
+
+export function ShowTitle(m: ListModel): boolean {
+  return m.showTitle
+}
+
+export function ShowFilter(m: ListModel): boolean {
+  return m.showFilter
+}
+
+export function ShowStatusBar(m: ListModel): boolean {
+  return m.showStatusBar
+}
+
+export function ShowPagination(m: ListModel): boolean {
+  return m.showPagination
+}
+
+export function ShowHelp(m: ListModel): boolean {
+  return m.showHelp
+}
+
+export function FilteringEnabled(m: ListModel): boolean {
+  return m.filteringEnabled
+}
+
+export function StatusBarItemName(m: ListModel): [string, string] {
+  return [m.itemNameSingular, m.itemNamePlural]
+}
+
+export function SetStatusBarItemName(m: ListModel, singular: string, plural: string): ListModel {
+  return { ...m, itemNameSingular: singular, itemNamePlural: plural }
+}
+
+export function MatchesForItem(m: ListModel, index: number): number[] {
+  if (m.filterState !== "filtered") return []
+  return m.filteredMatches[index] ?? []
+}
+
+export function SetWidth(m: ListModel, width: number): ListModel {
+  const newFilterInput = TextInputSetWidth(m.filterInput, width)
+  return { ...m, width, filterInput: newFilterInput }
+}
+
+export function SetHeight(m: ListModel, height: number): ListModel {
+  return { ...m, height }
+}
+
+export function SetSize(m: ListModel, width: number, height: number): ListModel {
+  const newFilterInput = TextInputSetWidth(m.filterInput, width)
+  return { ...m, width, height, filterInput: newFilterInput }
+}
+
+export function NewStatusMessage(m: ListModel, message: string): [ListModel, Cmd] {
+  if (m.statusMessageTimer != null) {
+    clearTimeout(m.statusMessageTimer)
+  }
+  const timer = setTimeout(() => {}, m.statusMessageLifetime)
+  return [
+    { ...m, statusMessage: message, statusMessageTimer: timer },
+    () => new Promise((resolve) => setTimeout(() => resolve({ type: "statusMessageTimeout" } as any), m.statusMessageLifetime)),
+  ]
+}
+
+export function ResetFilter(m: ListModel): ListModel {
+  const resetFilterInput = TextInputReset(m.filterInput)
+  return {
+    ...m,
+    filterState: "unfiltered",
+    filterInput: resetFilterInput,
+    filteredItems: m.items,
+    filteredMatches: [],
+    cursor: 0,
+    offset: 0,
+  }
+}
+
+function titleView(m: ListModel): string {
+  if (m.showFilter && m.filterState === "filtering") {
+    return TextInputView(m.filterInput)
+  }
+  if (m.showTitle) {
+    const parts: string[] = [m.styles.title.render(m.title)]
+    if (m.filterState !== "filtering" && m.statusMessage) {
+      parts.push("  ", m.statusMessage)
+    }
+    return m.styles.titleBar.render(parts.join(""))
+  }
+  return ""
+}
+
+function statusView(m: ListModel): string {
+  const totalItems = m.items.length
+  const visibleItems = VisibleItems(m).length
+  const itemName = visibleItems === 1 ? m.itemNameSingular : m.itemNamePlural
+  const itemsDisplay = `${visibleItems} ${itemName}`
+  const parts: string[] = []
+
+  if (m.filterState === "filtering") {
+    if (visibleItems === 0) {
+      parts.push(m.styles.statusEmpty.render("Nothing matched"))
+    } else {
+      parts.push(itemsDisplay)
+    }
+  } else if (m.items.length === 0) {
+    parts.push(m.styles.statusEmpty.render(`No ${m.itemNamePlural}`))
+  } else {
+    if (m.filterState === "filtered") {
+      const f = TextInputValue(m.filterInput).slice(0, 10)
+      parts.push(`"${f}" `)
+    }
+    parts.push(itemsDisplay)
+  }
+
+  const numFiltered = totalItems - visibleItems
+  if (numFiltered > 0) {
+    parts.push(
+      m.styles.dividerDot.render(" \u2022 "),
+      m.styles.statusBarFilterCount.render(`${numFiltered} filtered`)
+    )
+  }
+
+  return m.styles.statusBar.render(parts.join(""))
+}
+
+function paginationView(m: ListModel): string {
+  const items = VisibleItems(m)
+  if (items.length === 0) return ""
+  let h = m.height
+  if (m.showTitle || (m.showFilter && m.filteringEnabled)) {
+    h -= stringHeight(titleView(m))
+  }
+  if (m.showStatusBar) {
+    h -= stringHeight(statusView(m))
+  }
+  if (m.showHelp) {
+    h -= stringHeight(helpView(m))
+  }
+  const perPage = Math.max(1, Math.max(0, h))
+  return m.styles.paginationStyle.render(`Page ${Math.floor(m.cursor / perPage) + 1}`)
+}
+
+function helpView(m: ListModel): string {
+  const bindings: Binding[] = [
+    m.keyMap.CursorUp,
+    m.keyMap.CursorDown,
+    m.keyMap.NextPage,
+    m.keyMap.PrevPage,
+  ]
+
+  const filtering = m.filterState === "filtering"
+
+  if (!filtering && typeof (m.delegate as any).ShortHelp === "function") {
+    const delegateHelp = (m.delegate as any).ShortHelp() as Binding[]
+    if (delegateHelp && delegateHelp.length > 0) {
+      bindings.push(...delegateHelp)
+    }
+  }
+
+  bindings.push(
+    m.keyMap.Filter,
+    m.keyMap.ClearFilter,
+    m.keyMap.AcceptWhileFiltering,
+    m.keyMap.CancelWhileFiltering,
+  )
+
+  bindings.push(m.keyMap.Quit)
+
+  const helpParts = bindings
+    .filter((b) => b.Enabled())
+    .map((b) => {
+      const h = b.Help()
+      return `${h.key}: ${h.desc}`
+    })
+  return m.styles.helpStyle.render(helpParts.join(" \u2022 "))
+}
+
+export function Update(m: ListModel, msg: Msg): [ListModel, Cmd] {
+  if (Array.isArray(msg) && msg.length > 0 && typeof msg[0] === "object" && "item" in msg[0]!) {
+    const matches = msg as FilterMatchItem[]
+    const filteredItems = matches.map((m) => m.item)
+    const filteredMatches = matches.map((m) => m.matches)
+    const newCursor = Math.min(m.cursor, Math.max(0, filteredItems.length - 1))
+    return [{ ...m, filteredItems, filteredMatches, cursor: newCursor }, null]
+  }
+
+  if (!msg || !("type" in msg)) return [m, null]
+
+  if (msg.type === "spinnerTick") {
+    const [newSpinner, cmd] = SpinnerTick(m.spinner)
+    const newM = { ...m, spinner: newSpinner }
+    return [newM, m.showSpinner ? cmd : null]
+  }
+
+  if (msg.type === "statusMessageTimeout") {
+    return [{ ...m, statusMessage: "" }, null]
+  }
+
+  if (msg.type !== "key") return [m, null]
+
+  const key = msg as any
+
+  if (Matches(m.keyMap.ForceQuit as any, key)) {
+    return [m, () => ({ type: "quit" } as any)]
+  }
+
+  if (m.filterState === "filtering") {
+    if (Matches(m.keyMap.CancelWhileFiltering as any, key)) {
+      return [ResetFilter(m), null]
+    }
+    if (Matches(m.keyMap.AcceptWhileFiltering as any, key)) {
+      if (TextInputValue(m.filterInput) === "") {
+        return [ResetFilter(m), null]
+      }
+      const blurredInput = TextInputBlur(m.filterInput)
+      if (m.filteredItems.length === 0) {
+        const resetInput = TextInputReset(blurredInput)
+        return [{ ...m, filterState: "unfiltered", filterInput: resetInput, filteredItems: m.items, filteredMatches: [], cursor: 0, offset: 0 }, null]
+      }
+      const newCursor = Math.min(m.cursor, m.filteredItems.length - 1)
+      return [{ ...m, filterState: "filtered", filterInput: blurredInput, cursor: newCursor, offset: 0 }, null]
+    }
+    const [newFilterInput, inputCmd] = TextInputUpdate(m.filterInput, msg)
+    const newValue = TextInputValue(newFilterInput)
+    const oldValue = TextInputValue(m.filterInput)
+    if (newValue !== oldValue) {
+      const targets = m.items.map((item) => item.filterValue())
+      const ranks = m.filter(newValue, targets)
+      const filteredItems = ranks.map((r) => m.items[r.index]!)
+      const filteredMatches = ranks.map((r) => r.matchedIndexes)
+      const newCursor = Math.min(m.cursor, Math.max(0, filteredItems.length - 1))
+      const ch = getContentHeight(m)
+      const newOffset = filteredItems.length <= ch ? 0 : Math.min(m.offset, newCursor)
+      return [{ ...m, filterInput: newFilterInput, filteredItems, filteredMatches, cursor: newCursor, offset: newOffset }, inputCmd]
+    }
+    return [{ ...m, filterInput: newFilterInput }, inputCmd]
+  }
+
+  if (m.filterState === "filtered" && Matches(m.keyMap.ClearFilter as any, key)) {
+    return [ResetFilter(m), null]
+  }
+  if (Matches(m.keyMap.Quit as any, key)) {
+    return [m, () => ({ type: "quit" } as any)]
+  }
+  if (Matches(m.keyMap.CursorUp as any, key)) {
+    return [CursorUp(m), null]
+  }
+  if (Matches(m.keyMap.CursorDown as any, key)) {
+    return [CursorDown(m), null]
+  }
+  if (Matches(m.keyMap.GoToStart as any, key)) {
+    return [GoToStart(m), null]
+  }
+  if (Matches(m.keyMap.GoToEnd as any, key)) {
+    return [GoToEnd(m), null]
+  }
+  if (Matches(m.keyMap.Filter as any, key) && m.filteringEnabled) {
+    const freshInput = TextInputNew()
+    freshInput.prompt = "Filter: "
+    freshInput.charLimit = 64
+    freshInput.width = m.width
+    const [focusedInput] = TextInputFocus(freshInput)
+    return [{ ...m, filterState: "filtering", filterInput: focusedInput }, null]
+  }
+  if (Matches(m.keyMap.ShowFullHelp as any, key) || Matches(m.keyMap.CloseFullHelp as any, key)) {
+    return [m, null]
+  }
+
+  return [m, null]
+}
+
+function stringHeight(str: string): number {
+  if (str === "") return 0
+  return str.split("\n").length
+}
+
+function getContentHeight(m: ListModel): number {
+  let h = m.height
+  if (m.showTitle || (m.showFilter && m.filteringEnabled)) {
+    h -= stringHeight(titleView(m))
+  }
+  if (m.showStatusBar) {
+    h -= stringHeight(statusView(m))
+  }
+  if (m.showPagination) {
+    h -= stringHeight(paginationView(m))
+  }
+  if (m.showHelp) {
+    h -= stringHeight(helpView(m))
+  }
+  return Math.max(0, h)
+}
+
+export function View(m: ListModel): string {
+  const sections: string[] = []
+
+  if (m.showTitle || (m.showFilter && m.filteringEnabled)) {
+    sections.push(titleView(m))
+  }
+
+  if (m.showStatusBar) {
+    sections.push(statusView(m))
+  }
+
+  const contentHeight = getContentHeight(m)
+  const items = VisibleItems(m)
+
+  if (items.length === 0 && m.filterState !== "filtering") {
+    const emptyMsg = m.styles.noItems.render(`No ${m.itemNamePlural}.`)
+    sections.push(emptyMsg)
+  } else {
+    const contentLines: string[] = []
+    const delegateHeight = m.delegate.Height() || 1
+
+    let linesUsed = 0
+    for (let i = 0; linesUsed < contentHeight; i++) {
+      const itemIndex = m.offset + i
+      if (itemIndex < items.length) {
+        const item = items[itemIndex]!
+        const itemLines: string[] = []
+        m.delegate.Render((s) => itemLines.push(s), m, itemIndex, item)
+        for (const line of itemLines) {
+          if (linesUsed < contentHeight) {
+            contentLines.push(line)
+            linesUsed++
+          }
+        }
+      } else {
+        contentLines.push("")
+        linesUsed++
+      }
+    }
+
+    sections.push(contentLines.join("\n"))
+  }
+
+  if (m.showPagination) {
+    const pagination = paginationView(m)
+    if (pagination) sections.push(pagination)
+  }
+
+  if (m.showHelp) {
+    sections.push(helpView(m))
+  }
+
+  return sections.join("\n")
+}
