@@ -19,7 +19,7 @@ bun add github:yum-tty/cinnamon
 Or install from a specific package:
 
 ```bash
-bun add cinnamon
+bun add @yum-tty/cinnamon
 ```
 
 ## Components
