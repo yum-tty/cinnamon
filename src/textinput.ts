@@ -1,8 +1,8 @@
-import type { Model, Msg, Cmd, PasteMsg, Cursor as RealCursor, CursorShape } from "cinnamon-bun"
-import { NewStyle, type Style as StyleType, LightDark, Style } from "caramel"
+import type { Model, Msg, Cmd, PasteMsg, Cursor as RealCursor, CursorShape } from "@yum-tty/cinnamon-bun"
+import { NewStyle, type Style as StyleType, LightDark, Style } from "@yum-tty/caramel"
 import { Cursor as NewCursor, type CursorModel, CursorMode, Focus as CursorFocus, Blur as CursorBlur, SetChar, Update as CursorUpdate, View as CursorView, SetMode } from "./cursor"
 import { type Binding, NewBinding, Matches, type KeyMap } from "./key"
-import { ReadClipboard } from "cinnamon-bun"
+import { ReadClipboard } from "@yum-tty/cinnamon-bun"
 
 export enum EchoMode {
   Normal = "normal",
@@ -258,7 +258,7 @@ export function CurrentSuggestion(m: TextInputModel): string {
   if (m.currentSuggestionIndex >= m.matchedSuggestions.length) {
     return ""
   }
-  return m.matchedSuggestions[m.currentSuggestionIndex]
+  return m.matchedSuggestions[m.currentSuggestionIndex]!
 }
 
 function canAcceptSuggestion(m: TextInputModel): boolean {
@@ -458,7 +458,7 @@ function echoTransform(m: TextInputModel, v: string): string {
 
 function completionView(m: TextInputModel, offset: number): string {
   if (!canAcceptSuggestion(m)) return ""
-  const suggestion = m.matchedSuggestions[m.currentSuggestionIndex]
+  const suggestion = m.matchedSuggestions[m.currentSuggestionIndex]!
   if (m.value.length < suggestion.length) {
     return activeStyle(m).suggestion.inline(true).render(suggestion.slice(m.value.length + offset))
   }
@@ -571,7 +571,7 @@ export function Update(m: TextInputModel, msg: Msg): [TextInputModel, Cmd] {
   let newM = m
 
   if (Matches(newM.keyMap.AcceptSuggestion as any, key) && canAcceptSuggestion(newM)) {
-    const suggestion = newM.matchedSuggestions[newM.currentSuggestionIndex]
+    const suggestion = newM.matchedSuggestions[newM.currentSuggestionIndex]!
     newM = { ...newM, value: suggestion }
     newM = CursorEnd(newM)
   } else if (Matches(newM.keyMap.DeleteWordBackward as any, key)) {
@@ -665,7 +665,7 @@ export function View(m: TextInputModel): string {
     v += completionView(m, 0)
   } else {
     if (m.focus && canAcceptSuggestion(m)) {
-      const suggestion = m.matchedSuggestions[m.currentSuggestionIndex]
+      const suggestion = m.matchedSuggestions[m.currentSuggestionIndex]!
       if (value.length < suggestion.length) {
         let vc = { ...m.virtualCursor, textStyle: styles.suggestion }
         vc = SetChar(vc, echoTransform(m, suggestion[value.length] ?? " "))

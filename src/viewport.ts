@@ -1,7 +1,7 @@
 // viewport.ts | scrollable viewport component (bubbles port)
 
-import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { NewStyle, type Style as StyleType, getStringWidth, stripAnsi, StyleRanges, NewRange } from "caramel"
+import type { Model, Msg, Cmd } from "@yum-tty/cinnamon-bun"
+import { NewStyle, type Style as StyleType, getStringWidth, stripAnsi, StyleRanges, NewRange } from "@yum-tty/caramel"
 import { type Binding, NewBinding, Matches, type KeyMap } from "./key"
 
 const DefaultHorizontalStep = 6
@@ -468,7 +468,7 @@ function maxLineWidth(lines: string[]): number {
 function styleLines(m: ViewportModel, lines: string[], offset: number): string[] {
   if (!m.styleLineFunc) return lines
   for (let i = 0; i < lines.length; i++) {
-    lines[i] = m.styleLineFunc(i + offset).render(lines[i])
+    lines[i] = m.styleLineFunc(i + offset).render(lines[i]!)
   }
   return lines
 }
@@ -477,12 +477,12 @@ function highlightLines(m: ViewportModel, lines: string[], offset: number): stri
   if (m.highlights.length === 0) return lines
   for (let i = 0; i < lines.length; i++) {
     const ranges = makeHighlightRanges(m.highlights, i + offset, m.highlightStyle)
-    lines[i] = StyleRanges(lines[i], ...ranges)
+    lines[i] = StyleRanges(lines[i]!, ...ranges)
     if (m.hiIdx < 0) continue
     const sel = m.highlights[m.hiIdx]!
     const hi = sel.lines.get(i + offset)
     if (hi && hi[0] !== hi[1]) {
-      lines[i] = StyleRanges(lines[i], NewRange(hi[0], hi[1], m.selectedHighlightStyle))
+      lines[i] = StyleRanges(lines[i]!, NewRange(hi[0], hi[1], m.selectedHighlightStyle))
     }
   }
   return lines

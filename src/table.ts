@@ -1,7 +1,7 @@
-import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { Style, getStringWidth } from "caramel"
-import { SizeHeight as StrHeight, JoinHorizontal, JoinVertical, Truncate } from "caramel"
-import { type BorderStyle } from "caramel"
+import type { Model, Msg, Cmd } from "@yum-tty/cinnamon-bun"
+import { Style, getStringWidth } from "@yum-tty/caramel"
+import { SizeHeight as StrHeight, JoinHorizontal, JoinVertical, Truncate } from "@yum-tty/caramel"
+import { type BorderStyle } from "@yum-tty/caramel"
 import { type Binding, NewBinding, Matches, type KeyMap, type Help as BindingHelp } from "./key"
 import {
   type HelpModel,
@@ -351,7 +351,7 @@ export function SelectedRow(m: TableModel): Row | null {
   if (m.cursor < 0 || m.cursor >= m.rows.length) {
     return null
   }
-  return m.rows[m.cursor]
+  return m.rows[m.cursor] ?? null
 }
 
 export function Rows(m: TableModel): Row[] {
@@ -488,7 +488,7 @@ function headersView(m: TableModel): string {
 function renderRow(m: TableModel, r: number): string {
   const cells: string[] = []
   for (let i = 0; i < m.cols.length; i++) {
-    const col = m.cols[i]
+    const col = m.cols[i]!
     if (col.Width <= 0) continue
     const value = m.rows[r]?.[i] ?? ""
     const s = new Style().width(col.Width).maxWidth(col.Width).inline(true)
