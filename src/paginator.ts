@@ -1,6 +1,6 @@
 // paginator.ts | paginator component (bubbles port)
 
-import { Style } from "caramel"
+import { Style } from "@yum-tty/caramel"
 
 /**
  * PaginatorType is the type of paginator.

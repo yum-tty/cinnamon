@@ -1,7 +1,7 @@
 // cursor.ts | virtual cursor (bubbles port)
 
-import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { NewStyle, type Style as StyleType } from "caramel"
+import type { Model, Msg, Cmd } from "@yum-tty/cinnamon-bun"
+import { NewStyle, type Style as StyleType } from "@yum-tty/caramel"
 
 let lastID = 0
 function nextID(): number {

@@ -1,5 +1,5 @@
-import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { Style } from "caramel"
+import type { Model, Msg, Cmd } from "@yum-tty/cinnamon-bun"
+import { Style } from "@yum-tty/caramel"
 import { type Binding, NewBinding, Matches, type KeyMap } from "./key"
 import { type SpinnerModel, Spinner as NewSpinner, Tick as SpinnerTick, SpinCmd, View as SpinnerView } from "./spinner"
 import { type TextInputModel, New as TextInputNew, SetValue as TextInputSetValue, Focus as TextInputFocus, Blur as TextInputBlur, Reset as TextInputReset, CursorEnd as TextInputCursorEnd, Update as TextInputUpdate, View as TextInputView, Value as TextInputValue, SetWidth as TextInputSetWidth } from "./textinput"

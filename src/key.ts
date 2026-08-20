@@ -1,6 +1,6 @@
 // key.ts | key binding system (bubbles port)
 
-import type { KeyMsg } from "cinnamon-bun"
+import type { KeyMsg } from "@yum-tty/cinnamon-bun"
 
 /**
  * Help is help information for a given keybinding.

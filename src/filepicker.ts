@@ -1,5 +1,5 @@
-import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { NewStyle } from "caramel"
+import type { Model, Msg, Cmd } from "@yum-tty/cinnamon-bun"
+import { NewStyle } from "@yum-tty/caramel"
 import { readdir, stat, readlink } from "node:fs/promises"
 import { statSync } from "node:fs"
 import { join, dirname } from "node:path"

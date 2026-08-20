@@ -1,6 +1,6 @@
 // timer.ts | timer component (bubbles port)
 
-import type { Model, Msg, Cmd } from "cinnamon-bun"
+import type { Model, Msg, Cmd } from "@yum-tty/cinnamon-bun"
 
 let timerId = 0
 

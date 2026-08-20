@@ -73,7 +73,7 @@ import {
   TimerView,
   TimerInit,
 } from "../src/index"
-import { Style } from "caramel"
+import { Style } from "@yum-tty/caramel"
 
 // ──────────────────────────────────────────────
 // Spinner

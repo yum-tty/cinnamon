@@ -1,5 +1,5 @@
-import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { NewStyle, type Style as StyleType, isWideChar, getStringWidth } from "caramel"
+import type { Model, Msg, Cmd } from "@yum-tty/cinnamon-bun"
+import { NewStyle, type Style as StyleType, isWideChar, getStringWidth } from "@yum-tty/caramel"
 import {
   Cursor,
   type CursorModel,
@@ -27,7 +27,7 @@ import {
   Update as ViewportUpdate,
   View as ViewportView,
 } from "./viewport"
-import { ReadClipboard, Batch } from "cinnamon-bun"
+import { ReadClipboard, Batch } from "@yum-tty/cinnamon-bun"
 
 const DEFAULT_HEIGHT = 6
 const DEFAULT_WIDTH = 40

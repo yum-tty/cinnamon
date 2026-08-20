@@ -1,6 +1,6 @@
 // help.ts | help bar component (bubbles port)
 
-import { Style, getStringWidth } from "caramel"
+import { Style, getStringWidth } from "@yum-tty/caramel"
 import { type Binding, Enabled } from "./key"
 
 /**

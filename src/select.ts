@@ -1,8 +1,8 @@
 // select.ts | select menu component
 
-import type { Model, Msg, Cmd, View } from "cinnamon-bun"
-import { CreateView } from "cinnamon-bun"
-import { Style, BorderType } from "caramel"
+import type { Model, Msg, Cmd, View } from "@yum-tty/cinnamon-bun"
+import { CreateView } from "@yum-tty/cinnamon-bun"
+import { Style, BorderType } from "@yum-tty/caramel"
 
 export interface SelectOption {
   name: string

@@ -1,7 +1,7 @@
 // spinner.ts | spinner component (bubbles port)
 
-import type { Model, Msg, Cmd } from "cinnamon-bun"
-import { Style } from "caramel"
+import type { Model, Msg, Cmd } from "@yum-tty/cinnamon-bun"
+import { Style } from "@yum-tty/caramel"
 
 let lastID = 0
 function nextID(): number {
